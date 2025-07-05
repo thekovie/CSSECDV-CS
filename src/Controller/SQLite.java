@@ -88,7 +88,9 @@ public class SQLite {
             + " username TEXT NOT NULL UNIQUE,\n"
             + " password TEXT NOT NULL,\n"
             + " role INTEGER DEFAULT 2,\n"
-            + " locked INTEGER DEFAULT 0\n"
+            + " locked INTEGER DEFAULT 0,\n"
+            + " failed_attempts INTEGER DEFAULT 0,\n"
+            + " last_failed_attempt TEXT\n"
             + ");";
 
         try (Connection conn = DriverManager.getConnection(driverURL);
@@ -99,7 +101,7 @@ public class SQLite {
             System.out.print(ex);
         }
     }
-    
+
     public void dropHistoryTable() {
         String sql = "DROP TABLE IF EXISTS history;";
 
@@ -275,14 +277,16 @@ public class SQLite {
                                    rs.getString("username"),
                                    rs.getString("password"),
                                    rs.getInt("role"),
-                                   rs.getInt("locked")));
+                                   rs.getInt("locked"),
+                                   rs.getInt("failed_attempts"),
+                                   rs.getString("last_failed_attempt")));
             }
         } catch (Exception ex) {}
         return users;
     }
     
     public User getUser(String username){
-        String sql = "SELECT id, username, password, role, locked FROM users WHERE username = ? LIMIT 1";
+        String sql = "SELECT id, username, password, role, locked, failed_attempts, last_failed_attempt FROM users WHERE username = ? LIMIT 1";
 
         try (Connection conn = DriverManager.getConnection(driverURL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -296,7 +300,9 @@ public class SQLite {
                     rs.getString("username"),
                     rs.getString("password"), //already hashed
                     rs.getInt("role"),
-                    rs.getInt("locked")
+                    rs.getInt("locked"),
+                    rs.getInt("failed_attempts"),
+                    rs.getString("last_failed_attempt")
                 );
             }
 
@@ -356,10 +362,55 @@ public class SQLite {
 
         return rs.next();
         
-    } catch (SQLException e) {
-        e.printStackTrace();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+    
+    public void updateFailedLogin(String username, int failedAttempts, String timestamp) {
+        String sql = "UPDATE users SET failed_attempts = ?, last_failed_attempt = ? WHERE username = ?";
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, failedAttempts);
+            pstmt.setString(2, timestamp);
+            pstmt.setString(3, username);
+            pstmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }   
+    
+    public void resetLoginAttempts(String username) {
+        String sql = "UPDATE users SET failed_attempts = 0, last_failed_attempt = NULL WHERE username = ?";
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username);
+            pstmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    public void lockUser(String username) {
+        String sql = "UPDATE users SET locked = 1 WHERE username = ?";
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username);
+            pstmt.executeUpdate();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
-    return false;
-    }
 }
