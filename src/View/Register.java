@@ -1,6 +1,8 @@
 
 package View;
 
+import javax.swing.JOptionPane;
+
 public class Register extends javax.swing.JPanel {
 
     public Frame frame;
@@ -97,8 +99,13 @@ public class Register extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
 
     private void registerBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_registerBtnActionPerformed
-        frame.registerAction(usernameFld.getText(), passwordFld.getText(), confpassFld.getText());
-        frame.loginNav();
+        if (passwordFld.getText().equals(confpassFld.getText())) {
+            frame.registerAction(usernameFld.getText(), passwordFld.getText(), confpassFld.getText());
+            frame.loginNav();
+        }
+        else {
+            JOptionPane.showMessageDialog(null, "Passwords do not match!", "Registration Error", JOptionPane.ERROR_MESSAGE);
+        }
     }//GEN-LAST:event_registerBtnActionPerformed
 
     private void backBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_backBtnActionPerformed
