@@ -264,11 +264,24 @@ public class Frame extends javax.swing.JFrame {
             return;
         }
         try{
-            User user = new User(username, password); 
-            main.sqlite.addUser(user.getUsername(), user.getHashedPassword());
+            main.sqlite.addUser(username, User.hashPassword(password));
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+    
+    public boolean loginAction(String username, String password){
+        try{
+            User user = main.sqlite.getUser(username);
+            if (user == null) {
+                return false;
+            }
+            return user.checkPassword(password);
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
     }
     
     public boolean usernameExists(String username) {
