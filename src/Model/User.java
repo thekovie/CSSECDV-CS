@@ -38,7 +38,6 @@ public class User {
     }
 
     public String getHashedPassword() {
-        System.out.println("Password: " + hashedPassword);
         return hashedPassword;
     }
     
