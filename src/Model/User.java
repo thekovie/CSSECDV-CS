@@ -10,13 +10,13 @@ public class User {
 
     public User(String username, String password){
         this.username = username;
-        this.hashedPassword = hashPassword(password);
+        this.hashedPassword = password;
     }
     
     public User(int id, String username, String password, int role, int locked){
         this.id = id;
         this.username = username;
-        this.hashedPassword = hashPassword(password);
+        this.hashedPassword = password;
         this.role = role;
         this.locked = locked;
     }
@@ -41,7 +41,7 @@ public class User {
         return hashedPassword;
     }
     
-    private String hashPassword(String plainPassword) {
+    public static String hashPassword(String plainPassword) {
         return BCrypt.hashpw(plainPassword, BCrypt.gensalt(8));
     }
     
