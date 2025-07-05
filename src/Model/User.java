@@ -1,21 +1,22 @@
 package Model;
+import org.mindrot.jbcrypt.BCrypt;
 
 public class User {
     private int id;
     private String username;
-    private String password;
+    private final String hashedPassword;
     private int role = 2;
     private int locked = 0;
 
     public User(String username, String password){
         this.username = username;
-        this.password = password;
+        this.hashedPassword = hashPassword(password);
     }
     
     public User(int id, String username, String password, int role, int locked){
         this.id = id;
         this.username = username;
-        this.password = password;
+        this.hashedPassword = hashPassword(password);
         this.role = role;
         this.locked = locked;
     }
@@ -36,14 +37,19 @@ public class User {
         this.username = username;
     }
 
-    public String getPassword() {
-        return password;
+    public String getHashedPassword() {
+        System.out.println("Password: " + hashedPassword);
+        return hashedPassword;
     }
-
-    public void setPassword(String password) {
-        this.password = password;
+    
+    private String hashPassword(String plainPassword) {
+        return BCrypt.hashpw(plainPassword, BCrypt.gensalt(8));
     }
-
+    
+    public boolean checkPassword(String plainPassword) {
+        return BCrypt.checkpw(plainPassword, this.hashedPassword);
+    }
+    
     public int getRole() {
         return role;
     }

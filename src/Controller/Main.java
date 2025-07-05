@@ -90,16 +90,16 @@ public class Main {
 //            System.out.println(" Stock: " + products.get(nCtr).getStock());
 //            System.out.println(" Price: " + products.get(nCtr).getPrice());
 //        }
-//        // Get users
+        // Get users
 //        ArrayList<User> users = sqlite.getUsers();
 //        for(int nCtr = 0; nCtr < users.size(); nCtr++){
 //            System.out.println("===== User " + users.get(nCtr).getId() + " =====");
 //            System.out.println(" Username: " + users.get(nCtr).getUsername());
-//            System.out.println(" Password: " + users.get(nCtr).getPassword());
+//            System.out.println(" Password: " + users.get(nCtr).getHashedPassword());
 //            System.out.println(" Role: " + users.get(nCtr).getRole());
 //            System.out.println(" Locked: " + users.get(nCtr).getLocked());
 //        }
-        
+//        
         // Initialize User Interface
         Frame frame = new Frame();
         frame.init(this);
