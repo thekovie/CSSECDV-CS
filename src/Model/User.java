@@ -7,18 +7,22 @@ public class User {
     private final String hashedPassword;
     private int role = 2;
     private int locked = 0;
+    private int failedAttempts = 0;
+    private String lastFailedAttempt;
 
     public User(String username, String password){
         this.username = username;
-        this.hashedPassword = hashPassword(password);
+        this.hashedPassword = password;
     }
     
-    public User(int id, String username, String password, int role, int locked){
+    public User(int id, String username, String password, int role, int locked, int failedAttempts, String lastFailedAttempt){
         this.id = id;
         this.username = username;
-        this.hashedPassword = hashPassword(password);
+        this.hashedPassword = password;
         this.role = role;
         this.locked = locked;
+        this.failedAttempts = failedAttempts;
+        this.lastFailedAttempt = lastFailedAttempt;
     }
     
     public int getId() {
@@ -41,7 +45,7 @@ public class User {
         return hashedPassword;
     }
     
-    private String hashPassword(String plainPassword) {
+    public static String hashPassword(String plainPassword) {
         return BCrypt.hashpw(plainPassword, BCrypt.gensalt(8));
     }
     
@@ -63,5 +67,13 @@ public class User {
 
     public void setLocked(int locked) {
         this.locked = locked;
+    }
+    
+    public int getFailedAttempts() {
+        return this.failedAttempts;
+    }
+    
+    public String getLastFailedAttempt() {
+        return this.lastFailedAttempt;
     }
 }

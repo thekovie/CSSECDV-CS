@@ -1,6 +1,6 @@
 
 package View;
-
+import javax.swing.JOptionPane;
 public class Login extends javax.swing.JPanel {
 
     public Frame frame;
@@ -83,6 +83,18 @@ public class Login extends javax.swing.JPanel {
         );
     }// </editor-fold>//GEN-END:initComponents
     private void loginBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_loginBtnActionPerformed
+        String username = usernameFld.getText();
+        String password = passwordFld.getText();
+        
+        
+        String error = frame.loginAction(username, password);
+        
+        if (error != null) {
+            JOptionPane.showMessageDialog(null, error, "Login Error", JOptionPane.ERROR_MESSAGE);
+           return; 
+        }
+        
+        // success
         frame.mainNav();
     }//GEN-LAST:event_loginBtnActionPerformed
 

@@ -6,7 +6,7 @@ import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Dimension;
 import javax.swing.WindowConstants;
-
+import java.time.LocalDateTime;
 public class Frame extends javax.swing.JFrame {
 
     public Frame() {
@@ -257,6 +257,8 @@ public class Frame extends javax.swing.JFrame {
         frameView.show(Container, "registerPnl");
     }
     
+    
+    //TODO: might need to put these in their respective controllers...
     public void registerAction(String username, String password, String confpass){
         // double check if equal 
         if (!password.equals(confpass)) {
@@ -264,12 +266,70 @@ public class Frame extends javax.swing.JFrame {
             return;
         }
         try{
-            User user = new User(username, password); 
-            main.sqlite.addUser(user.getUsername(), user.getHashedPassword());
+            main.sqlite.addUser(username, User.hashPassword(password));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
+    
+    
+ 
+    public void handleFailedLogin(User user) {
+        int attempts = user.getFailedAttempts() + 1;
+        String timestamp = LocalDateTime.now().toString();
+        
+        // lock the user if 10 failed attempts are reached.
+        if (attempts >= 10) { 
+            user.setLocked(1);
+            main.sqlite.lockUser(user.getUsername());
+            
+        } else {
+            main.sqlite.updateFailedLogin(user.getUsername(), attempts, timestamp);
+        }
+        
+    }
+    
+    public int calculateCooldownSeconds(int attempts) {
+        return (attempts < 5) ? 0 : (int) Math.pow(2, attempts - 4);
+    }
+    
+    public boolean canAttemptLogin(User user) {
+        if (user.getLocked() == 1) return false;
+        int attempts = user.getFailedAttempts();
+        if (attempts  < 5 ) return true;
+        
+        LocalDateTime lastAttempt = LocalDateTime.parse(user.getLastFailedAttempt());
+        int cooldown = calculateCooldownSeconds(attempts);
+        LocalDateTime now = LocalDateTime.now();
+
+        return now.isAfter(lastAttempt.plusSeconds(cooldown));
+        
+    } 
+    
+    public String loginAction(String username, String password){
+        try{
+            User user = main.sqlite.getUser(username);
+            if (user == null) return "Invalid Username or Password!";
+            if (user.getLocked() == 1) return "Account locked. Please contact administrator.";
+            
+            if (!canAttemptLogin(user)) {
+                return "Too many login attempts. Please wait before trying again.";
+            }
+            
+            if (user.checkPassword(password) == false) {
+                handleFailedLogin(user);
+                return "Invalid Username or Password!";
+            } 
+            
+            main.sqlite.resetLoginAttempts(username);
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "Invalid Username or Password!";
+    }
+    
+    
     
     public boolean usernameExists(String username) {
         return main.sqlite.usernameExists(username);

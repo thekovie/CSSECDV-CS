@@ -23,7 +23,7 @@ public class Main {
     public void init(){
         // Initialize a driver object
         sqlite = new SQLite();
-
+        
 //        // Create a database
 //        sqlite.createNewDatabase();
 //        
@@ -55,11 +55,12 @@ public class Main {
 //        sqlite.addProduct("Scanner", 10, 100.0);
 //
 //        // Add sample users
-//        sqlite.addUser("admin", "qwerty1234" , 5);
-//        sqlite.addUser("manager", "qwerty1234", 4);
-//        sqlite.addUser("staff", "qwerty1234", 3);
-//        sqlite.addUser("client1", "qwerty1234", 2);
-//        sqlite.addUser("client2", "qwerty1234", 2);
+//        sqlite.addUser("admin", User.hashPassword("qwerty1234") , 5);
+//        sqlite.addUser("admin2", User.hashPassword("qwerty1234") , 5); // just in case admin gets locked out
+//        sqlite.addUser("manager", User.hashPassword("qwerty1234"), 4);
+//        sqlite.addUser("staff", User.hashPassword("qwerty1234"), 3);
+//        sqlite.addUser("client1", User.hashPassword("qwerty1234"), 2);
+//        sqlite.addUser("client2", User.hashPassword("qwerty1234"), 2);
 //        
 //        
 //        // Get users
@@ -90,7 +91,7 @@ public class Main {
 //            System.out.println(" Stock: " + products.get(nCtr).getStock());
 //            System.out.println(" Price: " + products.get(nCtr).getPrice());
 //        }
-        // Get users
+////         Get users
 //        ArrayList<User> users = sqlite.getUsers();
 //        for(int nCtr = 0; nCtr < users.size(); nCtr++){
 //            System.out.println("===== User " + users.get(nCtr).getId() + " =====");
@@ -99,7 +100,7 @@ public class Main {
 //            System.out.println(" Role: " + users.get(nCtr).getRole());
 //            System.out.println(" Locked: " + users.get(nCtr).getLocked());
 //        }
-//        
+        
         // Initialize User Interface
         Frame frame = new Frame();
         frame.init(this);
