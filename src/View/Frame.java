@@ -1,6 +1,7 @@
 package View;
 
 import Controller.Main;
+import Model.User;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Dimension;
@@ -257,7 +258,17 @@ public class Frame extends javax.swing.JFrame {
     }
     
     public void registerAction(String username, String password, String confpass){
-        main.sqlite.addUser(username, password);
+        // double check if equal 
+        if (!password.equals(confpass)) {
+            System.out.println("Passwords do not match.");
+            return;
+        }
+        try{
+            User user = new User(username, password); 
+            main.sqlite.addUser(user.getUsername(), user.getHashedPassword());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
     
     public boolean usernameExists(String username) {

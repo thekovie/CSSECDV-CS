@@ -49,7 +49,7 @@ public class MgmtUser extends javax.swing.JPanel {
         for(int nCtr = 0; nCtr < users.size(); nCtr++){
             tableModel.addRow(new Object[]{
                 users.get(nCtr).getUsername(), 
-                users.get(nCtr).getPassword(), 
+                users.get(nCtr).getHashedPassword(), 
                 users.get(nCtr).getRole(), 
                 users.get(nCtr).getLocked()});
         }
