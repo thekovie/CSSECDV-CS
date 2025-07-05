@@ -3,6 +3,8 @@ package View;
 
 import javax.swing.JOptionPane;
 
+import Model.Validator;
+
 public class Register extends javax.swing.JPanel {
 
     public Frame frame;
@@ -99,16 +101,18 @@ public class Register extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
 
     private void registerBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_registerBtnActionPerformed
-        if (frame.usernameExists(usernameFld.getText())) {
-            JOptionPane.showMessageDialog(null, "Username already exists!", "Registration Error", JOptionPane.WARNING_MESSAGE);
+        String username = usernameFld.getText();
+        String password = passwordFld.getText();
+        String confirm = confpassFld.getText();
+        
+        String error = Validator.validateRegistration(username, password, confirm, frame.usernameExists(username));
+        if (error != null) {
+            JOptionPane.showMessageDialog(null, error, "Registration Error", JOptionPane.ERROR_MESSAGE);
+            return;
         }
-        else if (!passwordFld.getText().equals(confpassFld.getText())) {
-            JOptionPane.showMessageDialog(null, "Passwords do not match!", "Registration Error", JOptionPane.ERROR_MESSAGE);
-        }
-        else {
-            frame.registerAction(usernameFld.getText(), passwordFld.getText(), confpassFld.getText());
-            frame.loginNav();
-        }
+
+        frame.registerAction(username, password, confirm);
+        frame.loginNav();
     }//GEN-LAST:event_registerBtnActionPerformed
 
     private void backBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_backBtnActionPerformed
