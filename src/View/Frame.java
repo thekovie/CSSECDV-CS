@@ -259,6 +259,10 @@ public class Frame extends javax.swing.JFrame {
     public void registerAction(String username, String password, String confpass){
         main.sqlite.addUser(username, password);
     }
+    
+    public boolean usernameExists(String username) {
+        return main.sqlite.usernameExists(username);
+    }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JPanel Container;
