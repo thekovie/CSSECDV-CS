@@ -281,6 +281,32 @@ public class SQLite {
         return users;
     }
     
+    public User getUser(String username){
+        String sql = "SELECT id, username, password, role, locked FROM users WHERE username = ? LIMIT 1";
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return new User(
+                    rs.getInt("id"),
+                    rs.getString("username"),
+                    rs.getString("password"), //already hashed
+                    rs.getInt("role"),
+                    rs.getInt("locked")
+                );
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null; // means user not found
+    }
+    
     public void addUser(String username, String password, int role) {
         String sql = "INSERT INTO users(username,password,role) VALUES('" + username + "','" + password + "','" + role + "')";
         
