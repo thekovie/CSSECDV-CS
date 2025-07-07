@@ -412,5 +412,22 @@ public class SQLite {
             e.printStackTrace();
         }
     }
+    
+    public int assignedRole(String username) {
+        String sql = "SELECT  role FROM users WHERE username = ?";
+        
+        try (Connection conn = DriverManager.getConnection(driverURL);
+                PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, username);
+                ResultSet rs = pstmt.executeQuery();
+                
+                if (rs.next()) {
+                    return rs.getInt("role");
+                }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
 
 }

@@ -94,8 +94,10 @@ public class Login extends javax.swing.JPanel {
            return; 
         }
         
+        int userRole = frame.assignedRole(username);
+        
         // success
-        frame.mainNav();
+        frame.mainNav(userRole);
     }//GEN-LAST:event_loginBtnActionPerformed
 
     private void registerBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_registerBtnActionPerformed
