@@ -245,8 +245,35 @@ public class Frame extends javax.swing.JFrame {
         this.setVisible(true);
     }
     
-    public void mainNav(){
+    public void setNavButtons(int userRole) {
+       adminBtn.setVisible(false);
+       managerBtn.setVisible(false);
+       staffBtn.setVisible(false);
+       clientBtn.setVisible(false);
+       
+       switch(userRole) {
+           case 2:
+               clientBtn.setVisible(true);
+               clientBtn.doClick();
+               break;
+           case 3:
+               staffBtn.setVisible(true);
+               staffBtn.doClick();
+               break;
+           case 4:
+               managerBtn.setVisible(true);
+               managerBtn.doClick();
+               break;
+           case 5:
+               adminBtn.setVisible(true);
+               adminBtn.doClick();
+               break;
+       }
+    }
+    
+    public void mainNav(int userRole){
         frameView.show(Container, "homePnl");
+        setNavButtons(userRole);
     }
     
     public void loginNav(){
@@ -329,6 +356,9 @@ public class Frame extends javax.swing.JFrame {
         return "Invalid Username or Password!";
     }
     
+    public int assignedRole(String username) {
+        return main.sqlite.assignedRole(username);
+    }
     
     
     public boolean usernameExists(String username) {
