@@ -108,10 +108,17 @@ public class Register extends javax.swing.JPanel {
         String error = Validator.validateRegistration(username, password, confirm, frame.usernameExists(username));
         if (error != null) {
             JOptionPane.showMessageDialog(null, error, "Registration Error", JOptionPane.ERROR_MESSAGE);
+            passwordFld.setText("");
+            confpassFld.setText("");
             return;
         }
 
         frame.registerAction(username, password, confirm);
+        
+        //clear fields
+        usernameFld.setText("");
+        passwordFld.setText("");
+        confpassFld.setText("");
         frame.loginNav();
     }//GEN-LAST:event_registerBtnActionPerformed
 
