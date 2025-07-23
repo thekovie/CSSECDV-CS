@@ -466,7 +466,7 @@ public class SQLite {
         }
     }
 
-    // deprecated, but kept for now just in case if neeed.
+    // deprecated, but kept for now just in case if needed.
     public void removeSession(int sessionId) {
         String sql = "DELETE FROM sessions WHERE session_id = ?";
 
@@ -529,22 +529,24 @@ public class SQLite {
     }
         
     public ArrayList<Session> getSessions(int userId) {
-        String sql = "SELECT session_id, user_id, username, role, login_time, expires_at FROM sessions WHERE user_id = '" + userId + "'";
+        String sql = "SELECT session_id, user_id, username, role, login_time, expires_at FROM sessions WHERE user_id = ?";
         ArrayList<Session> sessions = new ArrayList<>();
 
         try (Connection conn = DriverManager.getConnection(driverURL);
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
-            while (rs.next()) {
-                sessions.add(new Session(
-                    rs.getInt("session_id"),
-                    rs.getInt("user_id"),
-                    rs.getString("username"),
-                    rs.getInt("role"),
-                    rs.getString("login_time"),
-                    rs.getString("expires_at")
-                ));
+            pstmt.setInt(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    sessions.add(new Session(
+                        rs.getInt("session_id"),
+                        rs.getInt("user_id"),
+                        rs.getString("username"),
+                        rs.getInt("role"),
+                        rs.getString("login_time"),
+                        rs.getString("expires_at")
+                    ));
+                }
             }
         } catch (Exception ex) {
             System.out.print(ex);
@@ -552,6 +554,7 @@ public class SQLite {
 
         return sessions;
     }
+
 
 
 

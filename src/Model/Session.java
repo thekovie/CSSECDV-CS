@@ -20,7 +20,7 @@ public class Session {
         try {
             loginTs = Timestamp.valueOf(loginTime);
             expiryTs = Timestamp.valueOf(expiresAt);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException  e) {
             e.printStackTrace();
         }
         this.loginTimestamp = loginTs;

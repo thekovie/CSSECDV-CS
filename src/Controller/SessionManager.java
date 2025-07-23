@@ -42,7 +42,7 @@ public class SessionManager {
     }
     
     
-    public static void restoreLastSession(SQLite db) {
+    public static void restoreLastSession() {
     Session latest = main.sqlite.getLatestSession(); // You'll implement this
     if (latest != null && !latest.isExpired()) {
         currentSession = latest;
