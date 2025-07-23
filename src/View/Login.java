@@ -1,6 +1,7 @@
 
 package View;
 import javax.swing.JOptionPane;
+import Controller.SessionManager;
 public class Login extends javax.swing.JPanel {
 
     public Frame frame;
@@ -9,7 +10,7 @@ public class Login extends javax.swing.JPanel {
         initComponents();
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked")    
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
@@ -94,7 +95,7 @@ public class Login extends javax.swing.JPanel {
            return; 
         }
         
-        int userRole = frame.assignedRole(username);
+        int userRole = SessionManager.getSessionRole();
         
         // success
         frame.mainNav(userRole);

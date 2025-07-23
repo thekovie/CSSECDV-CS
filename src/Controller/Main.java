@@ -24,45 +24,57 @@ public class Main {
         // Initialize a driver object
         sqlite = new SQLite();
         
-//        // Create a database
-//        sqlite.createNewDatabase();
-//        
-//        // Drop users table if needed
-//        sqlite.dropHistoryTable();
-//        sqlite.dropLogsTable();
-//        sqlite.dropProductTable();
-//        sqlite.dropUserTable();
-//        
-//        // Create users table if not exist
-//        sqlite.createHistoryTable();
-//        sqlite.createLogsTable();
-//        sqlite.createProductTable();
-//        sqlite.createUserTable();
-//        
-//        // Add sample history
-//        sqlite.addHistory("admin", "Antivirus", 1, "2019-04-03 14:30:00.000");
-//        sqlite.addHistory("manager", "Firewall", 1, "2019-04-03 14:30:01.000");
-//        sqlite.addHistory("staff", "Scanner", 1, "2019-04-03 14:30:02.000");
-//        
-//        // Add sample logs
-//        sqlite.addLogs("NOTICE", "admin", "User creation successful", new Timestamp(new Date().getTime()).toString());
-//        sqlite.addLogs("NOTICE", "manager", "User creation successful", new Timestamp(new Date().getTime()).toString());
-//        sqlite.addLogs("NOTICE", "admin", "User creation successful", new Timestamp(new Date().getTime()).toString());
-//        
-//        // Add sample product
-//        sqlite.addProduct("Antivirus", 5, 500.0);
-//        sqlite.addProduct("Firewall", 3, 1000.0);
-//        sqlite.addProduct("Scanner", 10, 100.0);
-//
-//        // Add sample users
-//        sqlite.addUser("admin", User.hashPassword("qwerty1234") , 5);
-//        sqlite.addUser("admin2", User.hashPassword("qwerty1234") , 5); // just in case admin gets locked out
-//        sqlite.addUser("manager", User.hashPassword("qwerty1234"), 4);
-//        sqlite.addUser("staff", User.hashPassword("qwerty1234"), 3);
-//        sqlite.addUser("client1", User.hashPassword("qwerty1234"), 2);
-//        sqlite.addUser("client2", User.hashPassword("qwerty1234"), 2);
-//        
-//        
+        // Delete Expired Sessions
+        sqlite.deleteExpiredSessions();     
+        
+        
+        
+        // Create a database
+        sqlite.createNewDatabase();
+        
+        
+        // -- new tables for session management; run these at least once to setup the sessions table.
+        //sqlite.dropSessionsTable();
+        //sqlite.createSessionsTable();
+        
+        // Drop users table if needed
+        sqlite.dropHistoryTable();
+        sqlite.dropLogsTable();
+        sqlite.dropProductTable();
+        sqlite.dropUserTable();
+        
+        
+        // Create users table if not exist
+        sqlite.createHistoryTable();
+        sqlite.createLogsTable();
+        sqlite.createProductTable();
+        sqlite.createUserTable();
+        
+        
+        // Add sample history
+        sqlite.addHistory("admin", "Antivirus", 1, "2019-04-03 14:30:00.000");
+        sqlite.addHistory("manager", "Firewall", 1, "2019-04-03 14:30:01.000");
+        sqlite.addHistory("staff", "Scanner", 1, "2019-04-03 14:30:02.000");
+        
+        // Add sample logs
+        sqlite.addLogs("NOTICE", "admin", "User creation successful", new Timestamp(new Date().getTime()).toString());
+        sqlite.addLogs("NOTICE", "manager", "User creation successful", new Timestamp(new Date().getTime()).toString());
+        sqlite.addLogs("NOTICE", "admin", "User creation successful", new Timestamp(new Date().getTime()).toString());
+        
+        // Add sample product
+        sqlite.addProduct("Antivirus", 5, 500.0);
+        sqlite.addProduct("Firewall", 3, 1000.0);
+        sqlite.addProduct("Scanner", 10, 100.0);
+
+        // Add sample users
+        sqlite.addUser("admin", User.hashPassword("qwerty1234") , 5);
+        sqlite.addUser("admin2", User.hashPassword("qwerty1234") , 5); // just in case admin gets locked out
+        sqlite.addUser("manager", User.hashPassword("qwerty1234"), 4);
+        sqlite.addUser("staff", User.hashPassword("qwerty1234"), 3);
+        sqlite.addUser("client1", User.hashPassword("qwerty1234"), 2);
+        sqlite.addUser("client2", User.hashPassword("qwerty1234"), 2);
+        
+   
 //        // Get users
 //        ArrayList<History> histories = sqlite.getHistory();
 //        for(int nCtr = 0; nCtr < histories.size(); nCtr++){
@@ -100,10 +112,19 @@ public class Main {
 //            System.out.println(" Role: " + users.get(nCtr).getRole());
 //            System.out.println(" Locked: " + users.get(nCtr).getLocked());
 //        }
-        
+
+        SessionManager.initialize(this);
         // Initialize User Interface
         Frame frame = new Frame();
         frame.init(this);
+        
+        
+        // Method calls for autologin functionality
+        SessionManager.restoreLastSession(this.sqlite);
+        if (SessionManager.isLoggedIn()) {
+            int role = SessionManager.getSessionRole();
+            frame.mainNav(role);
+        }
     }
     
 }

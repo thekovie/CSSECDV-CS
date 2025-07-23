@@ -4,6 +4,7 @@ import Model.History;
 import Model.Logs;
 import Model.Product;
 import Model.User;
+import Model.Session;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -429,5 +430,151 @@ public class SQLite {
         }
         return -1;
     }
+    
+    
+    
+    // session table methods
+    public void createSessionsTable() {
+        String sql = "CREATE TABLE IF NOT EXISTS sessions (\n"
+            + " session_id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+            + " user_id INTEGER NOT NULL,\n"
+            + " username TEXT NOT NULL,\n"
+            + " role INTEGER NOT NULL,\n"
+            + " login_time TEXT NOT NULL,\n"
+            + " expires_at TEXT NOT NULL,\n"
+            + " FOREIGN KEY (user_id) REFERENCES users(id)\n"
+            + ");";
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+            System.out.println("Table sessions in database.db created.");
+        } catch (Exception ex) {
+            System.out.print(ex);
+        }
+    }
+
+    public void dropSessionsTable() {
+        String sql = "DROP TABLE IF EXISTS sessions;";
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+            System.out.println("Table sessions in database.db dropped.");
+        } catch (Exception ex) {
+            System.out.print(ex);
+        }
+    }
+
+    
+    public void addSession(Session session) {
+        String sql = "INSERT INTO sessions(user_id, username, role, login_time, expires_at) VALUES (?, ?, ?, ?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, session.getUserId());
+            pstmt.setString(2, session.getUsername());
+            pstmt.setInt(3, session.getRole());
+            pstmt.setString(4, session.getLoginTimestamp().toString());
+            pstmt.setString(5, session.getExpiresAt().toString());
+
+            pstmt.executeUpdate();
+        } catch (Exception ex) {
+            System.out.print(ex);
+        }
+    }
+
+    // deprecated, but kept for now just in case if neeed.
+    public void removeSession(int sessionId) {
+        String sql = "DELETE FROM sessions WHERE session_id = ?";
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, sessionId);
+            pstmt.executeUpdate();
+
+            System.out.println("Session " + sessionId + " has been deleted.");
+        } catch (Exception ex) {
+            System.out.print(ex);
+        }
+    }
+    
+    // effectively logs out all sessions for a user, so that the edge case of logging in in 2 windows and one logs out, all other windows will be logged out as well.
+    // prevents residual sessions
+    public void removeAllSessionsForUser(int userId) {
+        String sql = "DELETE FROM sessions WHERE user_id = ?";
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            pstmt.executeUpdate();
+        } catch (Exception ex) {
+            System.out.print(ex);
+        }
+    }
+
+    
+    public void deleteExpiredSessions() {
+        String sql = "DELETE FROM sessions WHERE expires_at <= datetime('now')";
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+            System.out.println("Expired sessions cleared.");
+        } catch (Exception ex) {
+            System.out.print(ex);
+        }
+    }
+
+    public Session getLatestSession() {
+        String sql = "SELECT * FROM sessions ORDER BY session_id DESC LIMIT 1";
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            if (rs.next()) {
+                return new Session(
+                    rs.getInt("session_id"),
+                    rs.getInt("user_id"),
+                    rs.getString("username"),
+                    rs.getInt("role"),
+                    rs.getString("login_time"),
+                    rs.getString("expires_at")
+                );
+            }
+
+        } catch (Exception e) {
+            System.out.println("Error restoring session: " + e.getMessage());
+        }
+        return null;
+    }
+        
+    public ArrayList<Session> getSessions(int userId) {
+        String sql = "SELECT session_id, user_id, username, role, login_time, expires_at FROM sessions WHERE user_id = '" + userId + "'";
+        ArrayList<Session> sessions = new ArrayList<>();
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                sessions.add(new Session(
+                    rs.getInt("session_id"),
+                    rs.getInt("user_id"),
+                    rs.getString("username"),
+                    rs.getInt("role"),
+                    rs.getString("login_time"),
+                    rs.getString("expires_at")
+                ));
+            }
+        } catch (Exception ex) {
+            System.out.print(ex);
+        }
+
+        return sessions;
+    }
+
+
+
 
 }

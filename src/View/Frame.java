@@ -1,6 +1,7 @@
 package View;
 
 import Controller.Main;
+import Controller.SessionManager;
 import Model.User;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -201,6 +202,7 @@ public class Frame extends javax.swing.JFrame {
     }//GEN-LAST:event_clientBtnActionPerformed
 
     private void logoutBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_logoutBtnActionPerformed
+        SessionManager.logout();
         frameView.show(Container, "loginPnl");
     }//GEN-LAST:event_logoutBtnActionPerformed
 
@@ -299,8 +301,8 @@ public class Frame extends javax.swing.JFrame {
         }
     }
     
-    
- 
+
+
     public void handleFailedLogin(User user) {
         int attempts = user.getFailedAttempts() + 1;
         String timestamp = LocalDateTime.now().toString();
@@ -349,6 +351,9 @@ public class Frame extends javax.swing.JFrame {
             } 
             
             main.sqlite.resetLoginAttempts(username);
+            
+            SessionManager.createSession(user.getId(), user.getUsername(), user.getRole(), 0);
+            
             return null;
         } catch (Exception e) {
             e.printStackTrace();
