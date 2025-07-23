@@ -73,6 +73,8 @@ public class Main {
         sqlite.addUser("staff", User.hashPassword("qwerty1234"), 3);
         sqlite.addUser("client1", User.hashPassword("qwerty1234"), 2);
         sqlite.addUser("client2", User.hashPassword("qwerty1234"), 2);
+        sqlite.addUser("locked", User.hashPassword("qwerty1234"), 1);
+        sqlite.lockUser("locked");
         
    
 //        // Get users
