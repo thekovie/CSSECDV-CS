@@ -361,11 +361,6 @@ public class Frame extends javax.swing.JFrame {
         return "Invalid Username or Password!";
     }
     
-    public int assignedRole(String username) {
-        return main.sqlite.assignedRole(username);
-    }
-    
-    
     public boolean usernameExists(String username) {
         return main.sqlite.usernameExists(username);
     }
