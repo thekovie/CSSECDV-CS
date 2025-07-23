@@ -122,7 +122,7 @@ public class Main {
         
         
         // Method calls for autologin functionality
-        SessionManager.restoreLastSession(this.sqlite);
+        SessionManager.restoreLastSession();
         if (SessionManager.isLoggedIn()) {
             int role = SessionManager.getSessionRole();
             frame.mainNav(role);

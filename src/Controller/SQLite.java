@@ -465,21 +465,6 @@ public class SQLite {
             System.out.print(ex);
         }
     }
-
-    // deprecated, but kept for now just in case if needed.
-    public void removeSession(int sessionId) {
-        String sql = "DELETE FROM sessions WHERE session_id = ?";
-
-        try (Connection conn = DriverManager.getConnection(driverURL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-
-            pstmt.setInt(1, sessionId);
-            pstmt.executeUpdate();
-
-        } catch (Exception ex) {
-            System.out.print(ex);
-        }
-    }
     
     // effectively logs out all sessions for a user, so that the edge case of logging in in 2 windows and one logs out, all other windows will be logged out as well.
     // prevents residual sessions

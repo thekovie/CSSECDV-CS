@@ -10,11 +10,12 @@ public class SessionManager {
     public static final int ROLE_STAFF         = 3;
     public static final int ROLE_MANAGER       = 4;
     public static final int ROLE_ADMINISTRATOR = 5;
-    public static final int ROLE_NONE          = -1; // Not logged in / no session
+    public static final int ROLE_NONE          = -1;
+    public static final int NO_SESSION         = -1;
+    
     
     
     private static Session currentSession = null;
-    private static int lastSessionId = -1; // store DB-generated session_id for deletion
     
     private static Main main;
     
@@ -36,10 +37,6 @@ public class SessionManager {
 
     }
 
-    public static void deleteSession(int sessionId){
-        main.sqlite.removeSession(sessionId);
-        currentSession = null;
-    }
     
     
     public static void restoreLastSession() {
@@ -69,7 +66,7 @@ public class SessionManager {
 
 
     public static int getCurrentSessionId() {
-        return isLoggedIn() ? currentSession.getSessionId() : ROLE_NONE;
+        return isLoggedIn() ? currentSession.getSessionId() : NO_SESSION;
     }
 
 
