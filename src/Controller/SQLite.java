@@ -476,7 +476,6 @@ public class SQLite {
             pstmt.setInt(1, sessionId);
             pstmt.executeUpdate();
 
-            System.out.println("Session " + sessionId + " has been deleted.");
         } catch (Exception ex) {
             System.out.print(ex);
         }
@@ -501,7 +500,6 @@ public class SQLite {
         try (Connection conn = DriverManager.getConnection(driverURL);
              Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
-            System.out.println("Expired sessions cleared.");
         } catch (Exception ex) {
             System.out.print(ex);
         }
