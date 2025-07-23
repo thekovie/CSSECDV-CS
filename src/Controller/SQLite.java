@@ -466,7 +466,7 @@ public class SQLite {
         }
     }
     
-    // effectively logs out all sessions for a user, so that the edge case of logging in in 2 windows and one logs out, all other windows will be logged out as well.
+    // effectively logs out all sessions for a user, so that the edge case of logging in from 2 windows and one logs out, all other windows will be logged out as well.
     // prevents residual sessions
     public void removeAllSessionsForUser(int userId) {
         String sql = "DELETE FROM sessions WHERE user_id = ?";

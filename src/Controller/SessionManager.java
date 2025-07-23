@@ -40,7 +40,7 @@ public class SessionManager {
     
     
     public static void restoreLastSession() {
-    Session latest = main.sqlite.getLatestSession(); // You'll implement this
+    Session latest = main.sqlite.getLatestSession();
     if (latest != null && !latest.isExpired()) {
         currentSession = latest;
         System.out.println("Auto-login: Session restored for user " + latest.getUsername());

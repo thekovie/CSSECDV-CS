@@ -33,9 +33,7 @@ public class Main {
         sqlite.createNewDatabase();
         
         
-        // -- new tables for session management; run these at least once to setup the sessions table.
-        //sqlite.dropSessionsTable();
-        //sqlite.createSessionsTable();
+        
         
         // Drop users table if needed
         sqlite.dropHistoryTable();
@@ -49,6 +47,10 @@ public class Main {
         sqlite.createLogsTable();
         sqlite.createProductTable();
         sqlite.createUserTable();
+        
+        // -- new tables for session management; run these at least once to setup the sessions table.
+        //sqlite.dropSessionsTable();
+        //sqlite.createSessionsTable();
         
         
         // Add sample history
