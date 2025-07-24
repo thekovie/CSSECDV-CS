@@ -6,6 +6,7 @@
 package View;
 
 import Controller.SQLite;
+import Controller.SessionManager;
 import Model.Product;
 import java.util.ArrayList;
 import javax.swing.JOptionPane;
@@ -29,10 +30,12 @@ public class MgmtProduct extends javax.swing.JPanel {
         table.getTableHeader().setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 14));
 
 //        UNCOMMENT TO DISABLE BUTTONS
-//        purchaseBtn.setVisible(false);
-//        addBtn.setVisible(false);
-//        editBtn.setVisible(false);
-//        deleteBtn.setVisible(false);
+        purchaseBtn.setVisible(false);
+        addBtn.setVisible(false);
+        editBtn.setVisible(false);
+        deleteBtn.setVisible(false);
+        
+        
     }
 
     public void init(){
@@ -48,6 +51,25 @@ public class MgmtProduct extends javax.swing.JPanel {
                 products.get(nCtr).getName(), 
                 products.get(nCtr).getStock(), 
                 products.get(nCtr).getPrice()});
+        }
+        
+        // Load buttons
+        int role = SessionManager.getSessionRole();
+        
+        switch (role) {
+            case 2:
+                purchaseBtn.setVisible(true);
+                break;
+            case 3:
+                addBtn.setVisible(true);
+                editBtn.setVisible(true);
+                deleteBtn.setVisible(true);
+                break;
+            case 4:
+                addBtn.setVisible(true);
+                editBtn.setVisible(true);
+                deleteBtn.setVisible(true);
+                break;
         }
     }
     
