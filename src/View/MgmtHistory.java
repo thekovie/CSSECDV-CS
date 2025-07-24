@@ -6,6 +6,7 @@
 package View;
 
 import Controller.SQLite;
+import Controller.SessionManager;
 import Model.History;
 import Model.Product;
 import java.util.ArrayList;
@@ -47,6 +48,13 @@ public class MgmtHistory extends javax.swing.JPanel {
         
 //      LOAD CONTENTS
         ArrayList<History> history = sqlite.getHistory();
+        
+        if (SessionManager.getSessionRole() == 2) {
+            history = sqlite.getHistoryWithUsername(SessionManager.getUsername());
+            System.out.println("User is a client, getting puchase history from " + SessionManager.getUsername());
+        }
+            
+        
         for(int nCtr = 0; nCtr < history.size(); nCtr++){
             Product product = sqlite.getProduct(history.get(nCtr).getName());
             tableModel.addRow(new Object[]{

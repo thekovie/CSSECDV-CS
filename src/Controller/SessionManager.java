@@ -68,6 +68,10 @@ public class SessionManager {
     public static int getCurrentSessionId() {
         return isLoggedIn() ? currentSession.getSessionId() : NO_SESSION;
     }
+    
+    public static String getUsername() {
+        return currentSession.getUsername();
+    }
 
 
     public static void logout() {
