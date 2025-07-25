@@ -13,6 +13,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.table.DefaultTableModel;
+import Model.Validator;
 
 /**
  *
@@ -199,15 +200,50 @@ public class MgmtProduct extends javax.swing.JPanel {
         if(table.getSelectedRow() >= 0){
             JTextField stockFld = new JTextField("0");
             designer(stockFld, "PRODUCT STOCK");
+            
+            Object selectedProduct = tableModel.getValueAt(table.getSelectedRow(), 0);
 
             Object[] message = {
-                "How many " + tableModel.getValueAt(table.getSelectedRow(), 0) + " do you want to purchase?", stockFld
+                "How many " + selectedProduct + " do you want to purchase?", stockFld
             };
 
             int result = JOptionPane.showConfirmDialog(null, message, "PURCHASE PRODUCT", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null);
 
             if (result == JOptionPane.OK_OPTION) {
-                System.out.println(stockFld.getText());
+                
+                try {
+                    // Get stock value from table
+                    int availableStock = (int) tableModel.getValueAt(table.getSelectedRow(), 1);
+                    
+                    int quantity = Validator.validateQuantity(stockFld.getText(), availableStock);
+                    
+                    // Validate session
+                    if (SessionManager.getSessionRole() != SessionManager.ROLE_CLIENT) {
+                        JOptionPane.showMessageDialog(
+                            this,
+                            "Only clients are allowed to purchase products.",
+                            "Access Denied",
+                            JOptionPane.WARNING_MESSAGE
+                        );
+                        return; // Stop execution
+                    }
+                    
+                    boolean res = sqlite.purchaseProduct(selectedProduct.toString(), quantity, SessionManager.getUsername());
+                     
+                    if (res) {
+                        JOptionPane.showMessageDialog(this, "Purchase successful!");
+                        init();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Purchase failed. Please try again.", "Database Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (IllegalArgumentException e) {
+                    JOptionPane.showMessageDialog(
+                        this,
+                        e.getMessage(),
+                        "Purchase Error",
+                        JOptionPane.ERROR_MESSAGE
+                    );
+                }
             }
         }
     }//GEN-LAST:event_purchaseBtnActionPerformed
