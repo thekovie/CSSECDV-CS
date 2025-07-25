@@ -14,6 +14,8 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.table.DefaultTableModel;
 import Model.Validator;
+import java.math.BigDecimal;
+
 
 /**
  *
@@ -264,9 +266,29 @@ public class MgmtProduct extends javax.swing.JPanel {
         int result = JOptionPane.showConfirmDialog(null, message, "ADD PRODUCT", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null);
 
         if (result == JOptionPane.OK_OPTION) {
-            System.out.println(nameFld.getText());
-            System.out.println(stockFld.getText());
-            System.out.println(priceFld.getText());
+            
+            if (SessionManager.getSessionRole() != SessionManager.ROLE_STAFF) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "Only staffs are allowed to add products.",
+                    "Access Denied",
+                    JOptionPane.WARNING_MESSAGE
+                );
+                return; // Stop execution
+            }
+            
+            try {
+                Validator.validateProductName(nameFld.getText());
+                int stock = Validator.parsePositiveInt(stockFld.getText(), "Stock");
+                BigDecimal price = Validator.validatePriceInput(priceFld.getText());
+
+                sqlite.addProduct(nameFld.getText().trim(), stock, price.doubleValue());
+                init();
+                JOptionPane.showMessageDialog(this, "Product added successfully!");
+
+            } catch (IllegalArgumentException e) {
+                JOptionPane.showMessageDialog(this, e.getMessage(), "Add Product Failed", JOptionPane.WARNING_MESSAGE);
+            }
         }
     }//GEN-LAST:event_addBtnActionPerformed
 
