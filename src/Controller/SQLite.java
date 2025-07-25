@@ -170,7 +170,6 @@ public class SQLite {
         }
     }
 
-    
     public void addLogs(String event, String username, String desc, String timestamp) {
         String sql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
 
@@ -188,7 +187,6 @@ public class SQLite {
         }
     }
 
-    
     public void addProduct(String name, int stock, double price, String performedBy) {
         String productSql = "INSERT INTO product(name, stock, price) VALUES (?, ?, ?)";
         String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
@@ -227,8 +225,8 @@ public class SQLite {
         }
     }
 
-    public void updateProduct(String name, int newStock, double newPrice, String performedBy) {
-        String updateSql = "UPDATE product SET stock = ?, price = ? WHERE name = ?";
+    public void updateProduct(String originalName, String newName, int newStock, double newPrice, String performedBy) {
+        String updateSql = "UPDATE product SET name = ?, stock = ?, price = ? WHERE name = ?";
         String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
 
         try (Connection conn = DriverManager.getConnection(driverURL)) {
@@ -238,9 +236,10 @@ public class SQLite {
                 PreparedStatement updateStmt = conn.prepareStatement(updateSql);
                 PreparedStatement logStmt = conn.prepareStatement(logSql)
             ) {
-                updateStmt.setInt(1, newStock);
-                updateStmt.setDouble(2, newPrice);
-                updateStmt.setString(3, name);
+                updateStmt.setString(1, newName);
+                updateStmt.setInt(2, newStock);
+                updateStmt.setDouble(3, newPrice);
+                updateStmt.setString(4, originalName); // use original name to find row
 
                 int rowsAffected = updateStmt.executeUpdate();
                 if (rowsAffected == 0) {
@@ -251,7 +250,7 @@ public class SQLite {
                 String timestamp = new Timestamp(System.currentTimeMillis()).toString();
                 logStmt.setString(1, "NOTICE");
                 logStmt.setString(2, performedBy);
-                logStmt.setString(3, "Product \"" + name + "\" updated.");
+                logStmt.setString(3, "Product \"" + originalName + "\" updated to \"" + newName + "\".");
                 logStmt.setString(4, timestamp);
                 logStmt.executeUpdate();
 
@@ -265,6 +264,7 @@ public class SQLite {
             throw new RuntimeException("Transaction failed: " + ex.getMessage());
         }
     }
+
 
     public ArrayList<Product> getProduct(){
         String sql = "SELECT id, name, stock, price FROM product";
