@@ -310,7 +310,7 @@ public class Frame extends javax.swing.JFrame {
         // lock the user if 10 failed attempts are reached.
         if (attempts >= 10) { 
             user.setLocked(1);
-            main.sqlite.lockUser(user.getUsername());
+            main.sqlite.lockUser(user.getUsername(), "locked out");
             
         } else {
             main.sqlite.updateFailedLogin(user.getUsername(), attempts, timestamp);
@@ -342,7 +342,7 @@ public class Frame extends javax.swing.JFrame {
             if (user.getLocked() == 1) return "Account locked. Please contact administrator.";
             
             if (!canAttemptLogin(user)) {
-                return "Too many login attempts. Please wait before trying again.";
+                return "Invalid Username or Password!"; // same common error. attacker will know if the username exists if there will be a different error.
             }
             
             if (user.checkPassword(password) == false) {
