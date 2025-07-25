@@ -267,14 +267,14 @@ public class MgmtProduct extends javax.swing.JPanel {
 
         if (result == JOptionPane.OK_OPTION) {
             
-            if (SessionManager.getSessionRole() != SessionManager.ROLE_STAFF) {
+            if (SessionManager.getSessionRole() < SessionManager.ROLE_STAFF) {
                 JOptionPane.showMessageDialog(
                     this,
-                    "Only staffs are allowed to add products.",
+                    "You are not allowed to access this feature.",
                     "Access Denied",
                     JOptionPane.WARNING_MESSAGE
                 );
-                return; // Stop execution
+                return;
             }
             
             try {
@@ -282,7 +282,7 @@ public class MgmtProduct extends javax.swing.JPanel {
                 int stock = Validator.parsePositiveInt(stockFld.getText(), "Stock");
                 BigDecimal price = Validator.validatePriceInput(priceFld.getText());
 
-                sqlite.addProduct(nameFld.getText().trim(), stock, price.doubleValue());
+                sqlite.addProduct(nameFld.getText().trim(), stock, price.doubleValue(), SessionManager.getUsername());
                 init();
                 JOptionPane.showMessageDialog(this, "Product added successfully!");
 
@@ -293,7 +293,7 @@ public class MgmtProduct extends javax.swing.JPanel {
     }//GEN-LAST:event_addBtnActionPerformed
 
     private void editBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_editBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
+    if (table.getSelectedRow() >= 0) {
             JTextField nameFld = new JTextField(tableModel.getValueAt(table.getSelectedRow(), 0) + "");
             JTextField stockFld = new JTextField(tableModel.getValueAt(table.getSelectedRow(), 1) + "");
             JTextField priceFld = new JTextField(tableModel.getValueAt(table.getSelectedRow(), 2) + "");
@@ -306,12 +306,43 @@ public class MgmtProduct extends javax.swing.JPanel {
                 "Edit Product Details:", nameFld, stockFld, priceFld
             };
 
-            int result = JOptionPane.showConfirmDialog(null, message, "EDIT PRODUCT", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null);
+            int result = JOptionPane.showConfirmDialog(
+                null, message, "EDIT PRODUCT",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null
+            );
 
             if (result == JOptionPane.OK_OPTION) {
-                System.out.println(nameFld.getText());
-                System.out.println(stockFld.getText());
-                System.out.println(priceFld.getText());
+
+                if (SessionManager.getSessionRole() < SessionManager.ROLE_STAFF) {
+                    JOptionPane.showMessageDialog(
+                        this,
+                        "You are not allowed to access this feature.",
+                        "Access Denied",
+                        JOptionPane.WARNING_MESSAGE
+                    );
+                    return;
+                }
+
+                try {
+                    // Validate inputs
+                    Validator.validateProductName(nameFld.getText());
+                    int stock = Validator.parsePositiveInt(stockFld.getText(), "Stock");
+                    BigDecimal price = Validator.validatePriceInput(priceFld.getText());
+
+                    // Perform update
+                    sqlite.updateProduct(
+                        nameFld.getText().trim(),
+                        stock,
+                        price.doubleValue(),
+                        SessionManager.getUsername()
+                    );
+
+                    init(); // Refresh table
+                    JOptionPane.showMessageDialog(this, "Product updated successfully!");
+
+                } catch (IllegalArgumentException e) {
+                    JOptionPane.showMessageDialog(this, e.getMessage(), "Edit Product Failed", JOptionPane.WARNING_MESSAGE);
+                }
             }
         }
     }//GEN-LAST:event_editBtnActionPerformed

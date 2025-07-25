@@ -64,9 +64,9 @@ public class Main {
         sqlite.addLogs("NOTICE", "admin", "User creation successful", new Timestamp(new Date().getTime()).toString());
         
         // Add sample product
-        sqlite.addProduct("Antivirus", 5, 500.0);
-        sqlite.addProduct("Firewall", 3, 1000.0);
-        sqlite.addProduct("Scanner", 10, 100.0);
+        sqlite.addProduct("Antivirus", 5, 500.0, "admin");
+        sqlite.addProduct("Firewall", 3, 1000.0, "admin");
+        sqlite.addProduct("Scanner", 10, 100.0, "admin");
 
         // Add sample users
         sqlite.addUser("admin", User.hashPassword("qwerty1234") , 5);
@@ -76,7 +76,7 @@ public class Main {
         sqlite.addUser("client1", User.hashPassword("qwerty1234"), 2);
         sqlite.addUser("client2", User.hashPassword("qwerty1234"), 2);
         sqlite.addUser("locked", User.hashPassword("qwerty1234"), 1);
-        sqlite.lockUser("locked");
+        sqlite.lockUser("locked", "admin");
         
    
 //        // Get users

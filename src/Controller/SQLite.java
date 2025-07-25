@@ -12,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -188,25 +189,221 @@ public class SQLite {
     }
 
     
-    public void addProduct(String name, int stock, double price) {
-        String sql = "INSERT INTO product(name, stock, price) VALUES (?, ?, ?)";
+    public void addProduct(String name, int stock, double price, String performedBy) {
+        String productSql = "INSERT INTO product(name, stock, price) VALUES (?, ?, ?)";
+        String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(driverURL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false);
 
-            pstmt.setString(1, name);
-            pstmt.setInt(2, stock);
-            pstmt.setDouble(3, price);
-            pstmt.executeUpdate();
+            try (
+                PreparedStatement productStmt = conn.prepareStatement(productSql);
+                PreparedStatement logStmt = conn.prepareStatement(logSql)
+            ) {
+                productStmt.setString(1, name);
+                productStmt.setInt(2, stock);
+                productStmt.setDouble(3, price);
+                productStmt.executeUpdate();
+
+                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                logStmt.setString(1, "NOTICE");
+                logStmt.setString(2, performedBy);
+                logStmt.setString(3, "Product \"" + name + "\" added.");
+                logStmt.setString(4, timestamp);
+                logStmt.executeUpdate();
+
+                conn.commit();
+            } catch (Exception ex) {
+                conn.rollback();
+                if (ex.getMessage().contains("UNIQUE constraint failed: product.name")) {
+                    throw new IllegalArgumentException("This product already exists. Please use the EDIT feature instead.");
+                } else {
+                    throw new RuntimeException("Error adding product: " + ex.getMessage());
+                }
+            }
 
         } catch (Exception ex) {
-            if (ex.getMessage().contains("UNIQUE constraint failed: product.name")) {
-                throw new IllegalArgumentException("This product already exists. Please use the EDIT feature instead.");
-            } else {
-                throw new RuntimeException("Error adding product: " + ex.getMessage());
-            }
+            throw new RuntimeException("Transaction failed: " + ex.getMessage());
         }
     }
+
+    
+    public void updateProduct(String name, int newStock, double newPrice, String performedBy) {
+        String updateSql = "UPDATE product SET stock = ?, price = ? WHERE name = ?";
+        String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false);
+
+            try (
+                PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+                PreparedStatement logStmt = conn.prepareStatement(logSql)
+            ) {
+                updateStmt.setInt(1, newStock);
+                updateStmt.setDouble(2, newPrice);
+                updateStmt.setString(3, name);
+
+                int rowsAffected = updateStmt.executeUpdate();
+                if (rowsAffected == 0) {
+                    conn.rollback();
+                    throw new IllegalArgumentException("Product not found. Update failed.");
+                }
+
+                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                logStmt.setString(1, "NOTICE");
+                logStmt.setString(2, performedBy);
+                logStmt.setString(3, "Product \"" + name + "\" updated.");
+                logStmt.setString(4, timestamp);
+                logStmt.executeUpdate();
+
+                conn.commit();
+            } catch (Exception ex) {
+                conn.rollback();
+                throw new RuntimeException("Error updating product: " + ex.getMessage());
+            }
+
+        } catch (Exception ex) {
+            throw new RuntimeException("Transaction failed: " + ex.getMessage());
+        }
+    }
+
+
+    public ArrayList<Product> getProduct(){
+        String sql = "SELECT id, name, stock, price FROM product";
+        ArrayList<Product> products = new ArrayList<Product>();
+        
+        try (Connection conn = DriverManager.getConnection(driverURL);
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql)){
+            
+            while (rs.next()) {
+                products.add(new Product(rs.getInt("id"),
+                                   rs.getString("name"),
+                                   rs.getInt("stock"),
+                                   rs.getFloat("price")));
+            }
+        } catch (Exception ex) {
+            System.out.print(ex);
+        }
+        return products;
+    }
+    
+    public Product getProduct(String name){
+        String sql = "SELECT name, stock, price FROM product WHERE name='" + name + "';";
+        Product product = null;
+        try (Connection conn = DriverManager.getConnection(driverURL);
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(sql)){
+            product = new Product(rs.getString("name"),
+                                   rs.getInt("stock"),
+                                   rs.getFloat("price"));
+        } catch (Exception ex) {
+            System.out.print(ex);
+        }
+        return product;
+    }
+    
+    
+    public boolean purchaseProduct(String name, int quantity, String username) {
+        String selectSql = "SELECT stock, price FROM product WHERE name = ?";
+        String updateSql = "UPDATE product SET stock = stock - ? WHERE name = ?";
+        String historySql = "INSERT INTO history(username, name, stock, timestamp) VALUES (?, ?, ?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false); // Start transaction
+
+            try (
+                PreparedStatement selectStmt = conn.prepareStatement(selectSql);
+                PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+                PreparedStatement historyStmt = conn.prepareStatement(historySql)
+            ) {
+                // Fetch stock
+                selectStmt.setString(1, name);
+                ResultSet rs = selectStmt.executeQuery();
+                if (!rs.next()) {
+                    System.out.println("Product not found.");
+                    return false;
+                }
+
+                int stock = rs.getInt("stock");
+                if (stock < quantity) {
+                    System.out.println("Insufficient stock.");
+                    return false;
+                }
+
+                // Update stock
+                updateStmt.setInt(1, quantity);
+                updateStmt.setString(2, name);
+                int rowsAffected = updateStmt.executeUpdate();
+                if (rowsAffected <= 0) {
+                    System.out.println("Failed to update product stock.");
+                    return false;
+                }
+
+                // Insert history
+                String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+                historyStmt.setString(1, username);
+                historyStmt.setString(2, name);
+                historyStmt.setInt(3, quantity);
+                historyStmt.setString(4, timestamp);
+                historyStmt.executeUpdate();
+
+                // Commit the transaction
+                conn.commit();
+                return true;
+
+            } catch (Exception innerEx) {
+                conn.rollback(); // Roll back if anything failed
+                System.out.println("Transaction rolled back due to: " + innerEx.getMessage());
+                return false;
+            }
+
+        } catch (Exception ex) {
+            System.out.println("Error during purchase: " + ex.getMessage());
+            return false;
+        }
+    }
+    
+    
+    public void deleteProduct(String name, String performedBy) {
+        String deleteSql = "DELETE FROM product WHERE name = ?";
+        String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false);
+
+            try (
+                PreparedStatement deleteStmt = conn.prepareStatement(deleteSql);
+                PreparedStatement logStmt = conn.prepareStatement(logSql)
+            ) {
+                deleteStmt.setString(1, name);
+                int rowsAffected = deleteStmt.executeUpdate();
+
+                if (rowsAffected == 0) {
+                    conn.rollback();
+                    throw new IllegalArgumentException("Product not found. Deletion failed.");
+                }
+
+                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                logStmt.setString(1, "NOTICE");
+                logStmt.setString(2, performedBy);
+                logStmt.setString(3, "Product \"" + name + "\" deleted.");
+                logStmt.setString(4, timestamp);
+                logStmt.executeUpdate();
+
+                conn.commit();
+            } catch (Exception ex) {
+                conn.rollback();
+                throw new RuntimeException("Error deleting product: " + ex.getMessage());
+            }
+
+        } catch (Exception ex) {
+            throw new RuntimeException("Transaction failed: " + ex.getMessage());
+        }
+    }
+
+    
+    
 
     
     public void addUser(String username, String password) {
@@ -296,25 +493,7 @@ public class SQLite {
         return logs;
     }
     
-    public ArrayList<Product> getProduct(){
-        String sql = "SELECT id, name, stock, price FROM product";
-        ArrayList<Product> products = new ArrayList<Product>();
-        
-        try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql)){
-            
-            while (rs.next()) {
-                products.add(new Product(rs.getInt("id"),
-                                   rs.getString("name"),
-                                   rs.getInt("stock"),
-                                   rs.getFloat("price")));
-            }
-        } catch (Exception ex) {
-            System.out.print(ex);
-        }
-        return products;
-    }
+    
     
     public ArrayList<User> getUsers(){
         String sql = "SELECT id, username, password, role, locked, failed_attempts, last_failed_attempt FROM users";
@@ -407,81 +586,7 @@ public class SQLite {
     }
 
     
-    public Product getProduct(String name){
-        String sql = "SELECT name, stock, price FROM product WHERE name='" + name + "';";
-        Product product = null;
-        try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql)){
-            product = new Product(rs.getString("name"),
-                                   rs.getInt("stock"),
-                                   rs.getFloat("price"));
-        } catch (Exception ex) {
-            System.out.print(ex);
-        }
-        return product;
-    }
-    
-    
-    public boolean purchaseProduct(String name, int quantity, String username) {
-        String selectSql = "SELECT stock, price FROM product WHERE name = ?";
-        String updateSql = "UPDATE product SET stock = stock - ? WHERE name = ?";
-        String historySql = "INSERT INTO history(username, name, stock, timestamp) VALUES (?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(driverURL)) {
-            conn.setAutoCommit(false); // Start transaction
-
-            try (
-                PreparedStatement selectStmt = conn.prepareStatement(selectSql);
-                PreparedStatement updateStmt = conn.prepareStatement(updateSql);
-                PreparedStatement historyStmt = conn.prepareStatement(historySql)
-            ) {
-                // Fetch stock
-                selectStmt.setString(1, name);
-                ResultSet rs = selectStmt.executeQuery();
-                if (!rs.next()) {
-                    System.out.println("Product not found.");
-                    return false;
-                }
-
-                int stock = rs.getInt("stock");
-                if (stock < quantity) {
-                    System.out.println("Insufficient stock.");
-                    return false;
-                }
-
-                // Update stock
-                updateStmt.setInt(1, quantity);
-                updateStmt.setString(2, name);
-                int rowsAffected = updateStmt.executeUpdate();
-                if (rowsAffected <= 0) {
-                    System.out.println("Failed to update product stock.");
-                    return false;
-                }
-
-                // Insert history
-                String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
-                historyStmt.setString(1, username);
-                historyStmt.setString(2, name);
-                historyStmt.setInt(3, quantity);
-                historyStmt.setString(4, timestamp);
-                historyStmt.executeUpdate();
-
-                // Commit the transaction
-                conn.commit();
-                return true;
-
-            } catch (Exception innerEx) {
-                conn.rollback(); // Roll back if anything failed
-                System.out.println("Transaction rolled back due to: " + innerEx.getMessage());
-                return false;
-            }
-
-        } catch (Exception ex) {
-            System.out.println("Error during purchase: " + ex.getMessage());
-            return false;
-        }
-    }
 
 
     
@@ -532,19 +637,46 @@ public class SQLite {
         }
     }
     
-    public void lockUser(String username) {
-        String sql = "UPDATE users SET locked = 1 WHERE username = ?";
+    public void lockUser(String username, String performedBy) {
+        String sqlLock = "UPDATE users SET locked = 1 WHERE username = ?";
+        String sqlLog = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(driverURL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false); // Begin transaction
 
-            pstmt.setString(1, username);
-            pstmt.executeUpdate();
+            try (
+                PreparedStatement lockStmt = conn.prepareStatement(sqlLock);
+                PreparedStatement logStmt = conn.prepareStatement(sqlLog)
+            ) {
+                // Lock the user
+                lockStmt.setString(1, username);
+                int rowsAffected = lockStmt.executeUpdate();
+
+                if (rowsAffected == 0) {
+                    throw new SQLException("User not found or already locked.");
+                }
+
+                // Insert log
+                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                logStmt.setString(1, "ALERT");
+                logStmt.setString(2, performedBy);
+                logStmt.setString(3, "User '" + username + "' account was locked.");
+                logStmt.setString(4, timestamp);
+                logStmt.executeUpdate();
+
+                // Commit both operations
+                conn.commit();
+
+            } catch (Exception innerEx) {
+                conn.rollback(); // Rollback on error
+                System.out.println("Transaction rolled back: " + innerEx.getMessage());
+            }
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("Error locking user: " + e.getMessage());
         }
     }
+
     
     // session table methods
     public void createSessionsTable() {
