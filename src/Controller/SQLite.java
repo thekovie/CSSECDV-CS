@@ -73,18 +73,19 @@ public class SQLite {
             + " id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
             + " name TEXT NOT NULL UNIQUE,\n"
             + " stock INTEGER DEFAULT 0,\n"
-            + " price REAL DEFAULT 0.00\n"
+            + " price REAL DEFAULT 0.00,\n"
+            + " deleted INTEGER DEFAULT 0\n"  // <-- Soft delete flag
             + ");";
 
         try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement()) {
+             Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
             System.out.println("Table product in database.db created.");
         } catch (Exception ex) {
             System.out.print(ex);
         }
     }
-     
+
     public void createUserTable() {
         String sql = "CREATE TABLE IF NOT EXISTS users (\n"
             + " id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
@@ -266,41 +267,56 @@ public class SQLite {
     }
 
 
-    public ArrayList<Product> getProduct(){
-        String sql = "SELECT id, name, stock, price FROM product";
-        ArrayList<Product> products = new ArrayList<Product>();
-        
+    public ArrayList<Product> getProduct() {
+        String sql = "SELECT id, name, stock, price FROM product WHERE deleted = 0";
+        ArrayList<Product> products = new ArrayList<>();
+
         try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql)){
-            
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
             while (rs.next()) {
-                products.add(new Product(rs.getInt("id"),
-                                   rs.getString("name"),
-                                   rs.getInt("stock"),
-                                   rs.getFloat("price")));
+                products.add(new Product(
+                    rs.getInt("id"),
+                    rs.getString("name"),
+                    rs.getInt("stock"),
+                    rs.getFloat("price")
+                ));
             }
         } catch (Exception ex) {
             System.out.print(ex);
         }
         return products;
     }
+
     
-    public Product getProduct(String name){
-        String sql = "SELECT name, stock, price FROM product WHERE name='" + name + "';";
+    public Product getProduct(String name, boolean includeDeleted) {
+        String sql = includeDeleted
+            ? "SELECT name, stock, price FROM product WHERE name = ?"
+            : "SELECT name, stock, price FROM product WHERE name = ? AND deleted = 0";
+
         Product product = null;
+
         try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql)){
-            product = new Product(rs.getString("name"),
-                                   rs.getInt("stock"),
-                                   rs.getFloat("price"));
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, name);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                product = new Product(
+                    rs.getString("name"),
+                    rs.getInt("stock"),
+                    rs.getFloat("price")
+                );
+            }
+
         } catch (Exception ex) {
             System.out.print(ex);
         }
         return product;
     }
-    
+
     public boolean purchaseProduct(String name, int quantity, String username) {
         String selectSql = "SELECT stock, price FROM product WHERE name = ?";
         String updateSql = "UPDATE product SET stock = stock - ? WHERE name = ?";
@@ -362,14 +378,14 @@ public class SQLite {
     }
     
     public void deleteProduct(String name, String performedBy) {
-        String deleteSql = "DELETE FROM product WHERE name = ?";
+        String softDeleteSql = "UPDATE product SET deleted = 1 WHERE name = ?";
         String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
 
         try (Connection conn = DriverManager.getConnection(driverURL)) {
             conn.setAutoCommit(false);
 
             try (
-                PreparedStatement deleteStmt = conn.prepareStatement(deleteSql);
+                PreparedStatement deleteStmt = conn.prepareStatement(softDeleteSql);
                 PreparedStatement logStmt = conn.prepareStatement(logSql)
             ) {
                 deleteStmt.setString(1, name);
@@ -383,20 +399,21 @@ public class SQLite {
                 String timestamp = new Timestamp(System.currentTimeMillis()).toString();
                 logStmt.setString(1, "NOTICE");
                 logStmt.setString(2, performedBy);
-                logStmt.setString(3, "Product \"" + name + "\" deleted.");
+                logStmt.setString(3, "Product \"" + name + "\" marked as deleted.");
                 logStmt.setString(4, timestamp);
                 logStmt.executeUpdate();
 
                 conn.commit();
             } catch (Exception ex) {
                 conn.rollback();
-                throw new RuntimeException("Error deleting product: " + ex.getMessage());
+                throw new RuntimeException("Error during soft deletion: " + ex.getMessage());
             }
 
         } catch (Exception ex) {
             throw new RuntimeException("Transaction failed: " + ex.getMessage());
         }
     }
+
 
     public void addUser(String username, String password) {
         String sql = "INSERT INTO users(username, password) VALUES (?, ?)";
