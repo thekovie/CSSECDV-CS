@@ -9,6 +9,7 @@ import Controller.SQLite;
 import Controller.SessionManager;
 import Model.History;
 import Model.Product;
+import Model.Validator;
 import java.util.ArrayList;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
@@ -26,7 +27,6 @@ public class MgmtHistory extends javax.swing.JPanel {
     public MgmtHistory(SQLite sqlite) {
         initComponents();
         this.sqlite = sqlite;
-        tableModel = (DefaultTableModel)table.getModel();
         table.getTableHeader().setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 14));
         javax.swing.table.DefaultTableCellRenderer rightAlign = new javax.swing.table.DefaultTableCellRenderer();
         rightAlign.setHorizontalAlignment(javax.swing.JLabel.RIGHT);
@@ -35,6 +35,8 @@ public class MgmtHistory extends javax.swing.JPanel {
         table.getColumnModel().getColumn(4).setCellRenderer(rightAlign);
         table.getColumnModel().getColumn(5).setCellRenderer(rightAlign);
         
+        
+
 //        UNCOMMENT TO DISABLE BUTTONS
 //        searchBtn.setVisible(false);
 //        reportBtn.setVisible(false);
@@ -168,38 +170,53 @@ public class MgmtHistory extends javax.swing.JPanel {
 
     private void searchBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_searchBtnActionPerformed
         JTextField searchFld = new JTextField("0");
-        designer(searchFld, "SEARCH USERNAME OR PRODUCT");
+        
+        if(SessionManager.isRole(SessionManager.ROLE_CLIENT)){
+            designer(searchFld, "SEARCH PRODUCT");
+        } else {
+            designer(searchFld, "SEARCH USERNAME OR PRODUCT");
+        }
+        
 
-        Object[] message = {
-            searchFld
-        };
+        Object[] message = { searchFld };
 
-        int result = JOptionPane.showConfirmDialog(null, message, "SEARCH HISTORY", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null);
+        int result = JOptionPane.showConfirmDialog(
+            null, message, "SEARCH HISTORY",
+            JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null
+        );
 
         if (result == JOptionPane.OK_OPTION) {
-//          CLEAR TABLE
-            for(int nCtr = tableModel.getRowCount(); nCtr > 0; nCtr--){
-                tableModel.removeRow(0);
-            }
+            try {
+                String query = searchFld.getText().trim();
+                Validator.validateSearchQuery(query);
 
-//          LOAD CONTENTS
-            ArrayList<History> history = sqlite.getHistory();
-            for(int nCtr = 0; nCtr < history.size(); nCtr++){
-                if(searchFld.getText().contains(history.get(nCtr).getUsername()) || 
-                   history.get(nCtr).getUsername().contains(searchFld.getText()) || 
-                   searchFld.getText().contains(history.get(nCtr).getName()) || 
-                   history.get(nCtr).getName().contains(searchFld.getText())){
-                
-                    Product product = sqlite.getProduct(history.get(nCtr).getName(), true);
-                    tableModel.addRow(new Object[]{
-                        history.get(nCtr).getUsername(), 
-                        history.get(nCtr).getName(), 
-                        history.get(nCtr).getStock(), 
-                        product.getPrice(), 
-                        product.getPrice() * history.get(nCtr).getStock(), 
-                        history.get(nCtr).getTimestamp()
-                    });
+                // Clear table
+                tableModel.setRowCount(0);
+
+                ArrayList<History> history;
+
+                if (SessionManager.getSessionRole() == SessionManager.ROLE_CLIENT) {
+                    history = sqlite.searchHistoryForUser(SessionManager.getUsername(), query);
+                } else {
+                    history = sqlite.searchHistory(query);
                 }
+
+                for (History h : history) {
+                    Product product = sqlite.getProduct(h.getName(), true);
+                    if (product != null) {
+                        tableModel.addRow(new Object[]{
+                            h.getUsername(),
+                            h.getName(),
+                            h.getStock(),
+                            product.getPrice(),
+                            product.getPrice() * h.getStock(),
+                            h.getTimestamp()
+                        });
+                    }
+                }
+
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Search Failed", JOptionPane.WARNING_MESSAGE);
             }
         }
     }//GEN-LAST:event_searchBtnActionPerformed
