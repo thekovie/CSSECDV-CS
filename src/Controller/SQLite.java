@@ -153,55 +153,77 @@ public class SQLite {
     }
     
     public void addHistory(String username, String name, int stock, String timestamp) {
-        String sql = "INSERT INTO history(username,name,stock,timestamp) VALUES('" + username + "','" + name + "','" + stock + "','" + timestamp + "')";
-        
+        String sql = "INSERT INTO history(username, name, stock, timestamp) VALUES (?, ?, ?, ?)";
+
         try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement()){
-            stmt.execute(sql);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username);
+            pstmt.setString(2, name);
+            pstmt.setInt(3, stock);
+            pstmt.setString(4, timestamp);
+            pstmt.executeUpdate();
+
         } catch (Exception ex) {
-            System.out.print(ex);
+            System.out.print("Error adding history: " + ex.getMessage());
         }
     }
+
     
     public void addLogs(String event, String username, String desc, String timestamp) {
-        String sql = "INSERT INTO logs(event,username,desc,timestamp) VALUES('" + event + "','" + username + "','" + desc + "','" + timestamp + "')";
-        
+        String sql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+
         try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement()){
-            stmt.execute(sql);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, event);
+            pstmt.setString(2, username);
+            pstmt.setString(3, desc);
+            pstmt.setString(4, timestamp);
+            pstmt.executeUpdate();
+
         } catch (Exception ex) {
-            System.out.print(ex);
+            System.out.print("Error adding log: " + ex.getMessage());
         }
     }
+
     
     public void addProduct(String name, int stock, double price) {
-        String sql = "INSERT INTO product(name,stock,price) VALUES('" + name + "','" + stock + "','" + price + "')";
-        
+        String sql = "INSERT INTO product(name, stock, price) VALUES (?, ?, ?)";
+
         try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement()){
-            stmt.execute(sql);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, name);
+            pstmt.setInt(2, stock);
+            pstmt.setDouble(3, price);
+            pstmt.executeUpdate();
+
         } catch (Exception ex) {
-            System.out.print(ex);
+            if (ex.getMessage().contains("UNIQUE constraint failed: product.name")) {
+                throw new IllegalArgumentException("This product already exists. Please use the EDIT feature instead.");
+            } else {
+                throw new RuntimeException("Error adding product: " + ex.getMessage());
+            }
         }
     }
+
     
     public void addUser(String username, String password) {
-        String sql = "INSERT INTO users(username,password) VALUES('" + username + "','" + password + "')";
-        
+        String sql = "INSERT INTO users(username, password) VALUES (?, ?)";
+
         try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement()){
-            stmt.execute(sql);
-            
-//      PREPARED STATEMENT EXAMPLE
-//      String sql = "INSERT INTO users(username,password) VALUES(?,?)";
-//      PreparedStatement pstmt = conn.prepareStatement(sql)) {
-//      pstmt.setString(1, username);
-//      pstmt.setString(2, password);
-//      pstmt.executeUpdate();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username);
+            pstmt.setString(2, password);
+            pstmt.executeUpdate();
+
         } catch (Exception ex) {
-            System.out.print(ex);
+            System.out.print("Error adding user: " + ex.getMessage());
         }
     }
+
     
     
     public ArrayList<History> getHistory(){
@@ -226,25 +248,32 @@ public class SQLite {
     }
     
     public ArrayList<History> getHistoryWithUsername(String username) {
-        String sql = "SELECT id, username, name, stock, timestamp FROM history WHERE username='" + username + "';";
-        ArrayList<History> histories = new ArrayList<History>();
-        
+        String sql = "SELECT id, username, name, stock, timestamp FROM history WHERE username = ?";
+        ArrayList<History> histories = new ArrayList<>();
+
         try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery(sql)){
-           
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+
             while (rs.next()) {
-                histories.add(new History(rs.getInt("id"),
-                                   rs.getString("username"),
-                                   rs.getString("name"),
-                                   rs.getInt("stock"),
-                                   rs.getString("timestamp")));
+                histories.add(new History(
+                    rs.getInt("id"),
+                    rs.getString("username"),
+                    rs.getString("name"),
+                    rs.getInt("stock"),
+                    rs.getString("timestamp")
+                ));
             }
+
         } catch (Exception ex) {
-            System.out.print(ex);
+            System.out.print("Error fetching user history: " + ex.getMessage());
         }
+
         return histories;
     }
+
     
     public ArrayList<Logs> getLogs(){
         String sql = "SELECT id, event, username, desc, timestamp FROM logs";
@@ -337,28 +366,46 @@ public class SQLite {
     }
     
     public void addUser(String username, String password, int role) {
-        String sql = "INSERT INTO users(username,password,role) VALUES('" + username + "','" + password + "','" + role + "')";
-        
-        try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement()){
-            stmt.execute(sql);
-            
-        } catch (Exception ex) {
-            System.out.print(ex);
-        }
-    }
-    
-    public void removeUser(String username) {
-        String sql = "DELETE FROM users WHERE username='" + username + "';";
+        String sql = "INSERT INTO users(username, password, role) VALUES (?, ?, ?)";
 
         try (Connection conn = DriverManager.getConnection(driverURL);
-            Statement stmt = conn.createStatement()) {
-            stmt.execute(sql);
-            System.out.println("User " + username + " has been deleted.");
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username);
+            pstmt.setString(2, password);
+            pstmt.setInt(3, role);
+            pstmt.executeUpdate();
+
         } catch (Exception ex) {
-            System.out.print(ex);
+            if (ex.getMessage().contains("UNIQUE constraint failed: users.username")) {
+                System.out.print("Username already exists.");
+            } else {
+                System.out.print("Error adding user: " + ex.getMessage());
+            }
         }
     }
+
+    
+    public void removeUser(String username) {
+        String sql = "DELETE FROM users WHERE username = ?";
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username);
+            int rows = pstmt.executeUpdate();
+
+            if (rows > 0) {
+                System.out.println("User " + username + " has been deleted.");
+            } else {
+                System.out.println("No user found with username: " + username);
+            }
+
+        } catch (Exception ex) {
+            System.out.print("Error removing user: " + ex.getMessage());
+        }
+    }
+
     
     public Product getProduct(String name){
         String sql = "SELECT name, stock, price FROM product WHERE name='" + name + "';";
