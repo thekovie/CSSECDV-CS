@@ -53,12 +53,18 @@ public class Validator {
             throw new IllegalArgumentException(fieldName + " is too large.");
         }
     }
-
+    
+    private static final int MAX_PURCHASE_QUANTITY = 1000;
+    
     public static int validateQuantity(String input, int availableStock) {
         int qty = parsePositiveInt(input, "Quantity");
         if (qty > availableStock) {
             throw new IllegalArgumentException("Cannot purchase more than " + availableStock + " in stock.");
         }
+        if (qty > 1000) { // or use MAX_PURCHASE_QUANTITY
+        throw new IllegalArgumentException("Quantity too large. Please contact support for bulk purchases.");
+        }   
+        
         return qty;
     }
 }
