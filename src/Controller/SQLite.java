@@ -227,7 +227,6 @@ public class SQLite {
         }
     }
 
-    
     public void updateProduct(String name, int newStock, double newPrice, String performedBy) {
         String updateSql = "UPDATE product SET stock = ?, price = ? WHERE name = ?";
         String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
@@ -267,7 +266,6 @@ public class SQLite {
         }
     }
 
-
     public ArrayList<Product> getProduct(){
         String sql = "SELECT id, name, stock, price FROM product";
         ArrayList<Product> products = new ArrayList<Product>();
@@ -302,7 +300,6 @@ public class SQLite {
         }
         return product;
     }
-    
     
     public boolean purchaseProduct(String name, int quantity, String username) {
         String selectSql = "SELECT stock, price FROM product WHERE name = ?";
@@ -364,7 +361,6 @@ public class SQLite {
         }
     }
     
-    
     public void deleteProduct(String name, String performedBy) {
         String deleteSql = "DELETE FROM product WHERE name = ?";
         String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
@@ -402,10 +398,6 @@ public class SQLite {
         }
     }
 
-    
-    
-
-    
     public void addUser(String username, String password) {
         String sql = "INSERT INTO users(username, password) VALUES (?, ?)";
 
@@ -421,8 +413,6 @@ public class SQLite {
         }
     }
 
-    
-    
     public ArrayList<History> getHistory(){
         String sql = "SELECT id, username, name, stock, timestamp FROM history";
         ArrayList<History> histories = new ArrayList<History>();
@@ -470,8 +460,7 @@ public class SQLite {
 
         return histories;
     }
-
-    
+ 
     public ArrayList<Logs> getLogs(){
         String sql = "SELECT id, event, username, desc, timestamp FROM logs";
         ArrayList<Logs> logs = new ArrayList<Logs>();
@@ -564,7 +553,6 @@ public class SQLite {
         }
     }
 
-    
     public void removeUser(String username) {
         String sql = "DELETE FROM users WHERE username = ?";
 
@@ -585,11 +573,6 @@ public class SQLite {
         }
     }
 
-    
-
-
-
-    
     public boolean usernameExists(String username) {
         String sql = "SELECT 1 FROM users WHERE username = ?";
          try (Connection conn = DriverManager.getConnection(driverURL);
