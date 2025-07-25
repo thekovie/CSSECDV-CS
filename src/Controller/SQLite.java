@@ -374,6 +374,43 @@ public class SQLite {
         return product;
     }
     
+    
+    public boolean purchaseProduct(String name, int quantity) {
+        String selectSql = "SELECT stock FROM product WHERE name = ?";
+        String updateSql = "UPDATE product SET stock = stock - ? WHERE name = ?";
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement selectStmt = conn.prepareStatement(selectSql);
+             PreparedStatement updateStmt = conn.prepareStatement(updateSql)) {
+
+            selectStmt.setString(1, name);
+            ResultSet rs = selectStmt.executeQuery();
+
+            if (!rs.next()) {
+                System.out.println("Product not found.");
+                return false;
+            }
+
+            int stock = rs.getInt("stock");
+
+            if (stock < quantity) {
+                System.out.println("Insufficient stock.");
+                return false;
+            }
+
+            updateStmt.setInt(1, quantity);
+            updateStmt.setString(2, name);
+
+            int rowsAffected = updateStmt.executeUpdate();
+            return rowsAffected > 0;
+
+        } catch (Exception ex) {
+            System.out.println("Error during purchase: " + ex.getMessage());
+            return false;
+        }
+    }
+
+    
     public boolean usernameExists(String username) {
         String sql = "SELECT 1 FROM users WHERE username = ?";
          try (Connection conn = DriverManager.getConnection(driverURL);

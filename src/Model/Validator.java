@@ -20,4 +20,45 @@ public class Validator {
         if (reviewPasswordStrength(password) == 0) return "Your password is too weak!";
         return null; //valid
     }
+    
+    public static String sanitizeString(String input) {
+    if (input == null) return "";
+    // Remove control characters and trim whitespace
+    return input.replaceAll("[\\p{Cntrl}&&[^\r\n\t]]", "").trim();
+}
+
+    public static boolean matchesPattern(String input, String regex) {
+        if (input == null) return false;
+        return input.matches(regex);
+    }
+    
+    
+    public static int parsePositiveInt(String input, String fieldName) {
+        if (input == null || input.trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " is required.");
+        }
+
+        String trimmed = input.trim();
+        if (!matchesPattern(trimmed, "^\\d+$")) {
+            throw new IllegalArgumentException(fieldName + " must be a whole number.");
+        }
+
+        try {
+            int value = Integer.parseInt(trimmed);
+            if (value < 1) {
+                throw new IllegalArgumentException(fieldName + " must be at least 1.");
+            }
+            return value;
+        } catch (NumberFormatException ex) {
+            throw new IllegalArgumentException(fieldName + " is too large.");
+        }
+    }
+
+    public static int validateQuantity(String input, int availableStock) {
+        int qty = parsePositiveInt(input, "Quantity");
+        if (qty > availableStock) {
+            throw new IllegalArgumentException("Cannot purchase more than " + availableStock + " in stock.");
+        }
+        return qty;
+    }
 }
