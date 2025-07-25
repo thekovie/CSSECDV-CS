@@ -56,7 +56,7 @@ public class MgmtHistory extends javax.swing.JPanel {
             
         
         for(int nCtr = 0; nCtr < history.size(); nCtr++){
-            Product product = sqlite.getProduct(history.get(nCtr).getName());
+            Product product = sqlite.getProduct(history.get(nCtr).getName(), true);
             tableModel.addRow(new Object[]{
                 history.get(nCtr).getUsername(), 
                 history.get(nCtr).getName(), 
@@ -190,7 +190,7 @@ public class MgmtHistory extends javax.swing.JPanel {
                    searchFld.getText().contains(history.get(nCtr).getName()) || 
                    history.get(nCtr).getName().contains(searchFld.getText())){
                 
-                    Product product = sqlite.getProduct(history.get(nCtr).getName());
+                    Product product = sqlite.getProduct(history.get(nCtr).getName(), true);
                     tableModel.addRow(new Object[]{
                         history.get(nCtr).getUsername(), 
                         history.get(nCtr).getName(), 

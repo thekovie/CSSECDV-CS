@@ -14,6 +14,8 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.table.DefaultTableModel;
 import Model.Validator;
+import java.math.BigDecimal;
+
 
 /**
  *
@@ -264,17 +266,38 @@ public class MgmtProduct extends javax.swing.JPanel {
         int result = JOptionPane.showConfirmDialog(null, message, "ADD PRODUCT", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null);
 
         if (result == JOptionPane.OK_OPTION) {
-            System.out.println(nameFld.getText());
-            System.out.println(stockFld.getText());
-            System.out.println(priceFld.getText());
+            
+            if (SessionManager.getSessionRole() < SessionManager.ROLE_STAFF) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "You are not allowed to access this feature.",
+                    "Access Denied",
+                    JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+            
+            try {
+                Validator.validateProductName(nameFld.getText());
+                int stock = Validator.parsePositiveInt(stockFld.getText(), "Stock");
+                BigDecimal price = Validator.validatePriceInput(priceFld.getText());
+
+                sqlite.addProduct(nameFld.getText().trim(), stock, price.doubleValue(), SessionManager.getUsername());
+                init();
+                JOptionPane.showMessageDialog(this, "Product added successfully!");
+
+            } catch (IllegalArgumentException e) {
+                JOptionPane.showMessageDialog(this, e.getMessage(), "Add Product Failed", JOptionPane.WARNING_MESSAGE);
+            }
         }
     }//GEN-LAST:event_addBtnActionPerformed
 
     private void editBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_editBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
+    if (table.getSelectedRow() >= 0) {
             JTextField nameFld = new JTextField(tableModel.getValueAt(table.getSelectedRow(), 0) + "");
             JTextField stockFld = new JTextField(tableModel.getValueAt(table.getSelectedRow(), 1) + "");
             JTextField priceFld = new JTextField(tableModel.getValueAt(table.getSelectedRow(), 2) + "");
+            String originalName = tableModel.getValueAt(table.getSelectedRow(), 0).toString();
 
             designer(nameFld, "PRODUCT NAME");
             designer(stockFld, "PRODUCT STOCK");
@@ -284,22 +307,82 @@ public class MgmtProduct extends javax.swing.JPanel {
                 "Edit Product Details:", nameFld, stockFld, priceFld
             };
 
-            int result = JOptionPane.showConfirmDialog(null, message, "EDIT PRODUCT", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null);
+            int result = JOptionPane.showConfirmDialog(
+                null, message, "EDIT PRODUCT",
+                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null
+            );
 
             if (result == JOptionPane.OK_OPTION) {
-                System.out.println(nameFld.getText());
-                System.out.println(stockFld.getText());
-                System.out.println(priceFld.getText());
+
+                if (SessionManager.getSessionRole() < SessionManager.ROLE_STAFF) {
+                    JOptionPane.showMessageDialog(
+                        this,
+                        "You are not allowed to access this feature.",
+                        "Access Denied",
+                        JOptionPane.WARNING_MESSAGE
+                    );
+                    return;
+                }
+
+                try {
+                    // Validate inputs
+                    Validator.validateProductName(nameFld.getText());
+                    int stock = Validator.parsePositiveInt(stockFld.getText(), "Stock");
+                    BigDecimal price = Validator.validatePriceInput(priceFld.getText());
+
+                    // Perform update
+                    sqlite.updateProduct(
+                        originalName,
+                        nameFld.getText().trim(),
+                        stock,
+                        price.doubleValue(),
+                        SessionManager.getUsername()
+                    );
+
+                    init(); // Refresh table
+                    JOptionPane.showMessageDialog(this, "Product updated successfully!");
+
+                } catch (IllegalArgumentException e) {
+                    JOptionPane.showMessageDialog(this, e.getMessage(), "Edit Product Failed", JOptionPane.WARNING_MESSAGE);
+                }
             }
         }
     }//GEN-LAST:event_editBtnActionPerformed
 
     private void deleteBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
-            int result = JOptionPane.showConfirmDialog(null, "Are you sure you want to delete " + tableModel.getValueAt(table.getSelectedRow(), 0) + "?", "DELETE PRODUCT", JOptionPane.YES_NO_OPTION);
-            
+        if (table.getSelectedRow() >= 0) {
+            // Role check
+            if (SessionManager.getSessionRole() < SessionManager.ROLE_STAFF) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "You are not allowed to access this feature.",
+                    "Access Denied",
+                    JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            String productName = tableModel.getValueAt(table.getSelectedRow(), 0).toString();
+
+            int result = JOptionPane.showConfirmDialog(
+                null,
+                "Are you sure you want to delete the product \"" + productName + "\"?",
+                "DELETE PRODUCT",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+            );
+
             if (result == JOptionPane.YES_OPTION) {
-                System.out.println(tableModel.getValueAt(table.getSelectedRow(), 0));
+                try {
+                    Validator.validateProductName(productName); // sanitize and validate
+                    sqlite.deleteProduct(productName, SessionManager.getUsername());
+                    init(); // refresh table
+                    JOptionPane.showMessageDialog(this, "Product deleted successfully!");
+                } catch (IllegalArgumentException e) {
+                    JOptionPane.showMessageDialog(this, e.getMessage(), "Delete Failed", JOptionPane.WARNING_MESSAGE);
+                } catch (RuntimeException e) {
+                    JOptionPane.showMessageDialog(this, "Unexpected error: " + e.getMessage(), "Delete Failed", JOptionPane.ERROR_MESSAGE);
+                }
             }
         }
     }//GEN-LAST:event_deleteBtnActionPerformed

@@ -2,6 +2,7 @@ package Model;
 
 import com.nulabinc.zxcvbn.Strength;
 import com.nulabinc.zxcvbn.Zxcvbn;
+import java.math.BigDecimal;
 
 public class Validator {
     
@@ -50,7 +51,7 @@ public class Validator {
             }
             return value;
         } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException(fieldName + " is too large.");
+            throw new IllegalArgumentException(fieldName + " is too large. Please contact the administrator if you think this was a mistake. ");
         }
     }
     
@@ -61,10 +62,58 @@ public class Validator {
         if (qty > availableStock) {
             throw new IllegalArgumentException("Cannot purchase more than " + availableStock + " in stock.");
         }
-        if (qty > 1000) { // or use MAX_PURCHASE_QUANTITY
+        if (qty > MAX_PURCHASE_QUANTITY) {
         throw new IllegalArgumentException("Quantity too large. Please contact support for bulk purchases.");
         }   
         
         return qty;
     }
+    
+    public static void validateProductName(String name) {
+        String cleaned = sanitizeString(name);
+
+        if (cleaned.isEmpty()) {
+            throw new IllegalArgumentException("Product name is required.");
+        }
+
+        if (cleaned.length() > 100) {
+            throw new IllegalArgumentException("Product name must be at most 100 characters.");
+        }
+
+        if (!matchesPattern(cleaned, "^[A-Za-z0-9\\-_. ]+$")) {
+            throw new IllegalArgumentException("Product name contains invalid characters.");
+        }
+    }
+    
+
+    public static BigDecimal validatePriceInput(String input) {
+        if (input == null || input.trim().isEmpty()) {
+            throw new IllegalArgumentException("Product price is required.");
+        }
+
+        try {
+            BigDecimal price = new BigDecimal(input.trim());
+
+            if (price.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Product price must be greater than zero.");
+            }
+
+            if (price.scale() > 2) {
+                throw new IllegalArgumentException("Product price must have at most 2 decimal places.");
+            }
+
+            if (price.compareTo(new BigDecimal("1000000")) > 0) {
+                throw new IllegalArgumentException("Product price is unrealistically high. Please contact the administrator if you think this was a mistake.");
+            }
+
+            return price;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Product price must be a valid number.");
+        }
+    }
+    
+    
+
+    
+    
 }
