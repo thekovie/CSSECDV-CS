@@ -228,7 +228,7 @@ public class MgmtProduct extends javax.swing.JPanel {
                         return; // Stop execution
                     }
                     
-                    boolean res = sqlite.purchaseProduct(selectedProduct.toString(), quantity);
+                    boolean res = sqlite.purchaseProduct(selectedProduct.toString(), quantity, SessionManager.getUsername());
                      
                     if (res) {
                         JOptionPane.showMessageDialog(this, "Purchase successful!");

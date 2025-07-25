@@ -13,7 +13,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 public class SQLite {
     
     public int DEBUG_MODE = 0;
@@ -375,40 +376,66 @@ public class SQLite {
     }
     
     
-    public boolean purchaseProduct(String name, int quantity) {
-        String selectSql = "SELECT stock FROM product WHERE name = ?";
+    public boolean purchaseProduct(String name, int quantity, String username) {
+        String selectSql = "SELECT stock, price FROM product WHERE name = ?";
         String updateSql = "UPDATE product SET stock = stock - ? WHERE name = ?";
+        String historySql = "INSERT INTO history(username, name, stock, timestamp) VALUES (?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(driverURL);
-             PreparedStatement selectStmt = conn.prepareStatement(selectSql);
-             PreparedStatement updateStmt = conn.prepareStatement(updateSql)) {
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false); // Start transaction
 
-            selectStmt.setString(1, name);
-            ResultSet rs = selectStmt.executeQuery();
+            try (
+                PreparedStatement selectStmt = conn.prepareStatement(selectSql);
+                PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+                PreparedStatement historyStmt = conn.prepareStatement(historySql)
+            ) {
+                // Fetch stock
+                selectStmt.setString(1, name);
+                ResultSet rs = selectStmt.executeQuery();
+                if (!rs.next()) {
+                    System.out.println("Product not found.");
+                    return false;
+                }
 
-            if (!rs.next()) {
-                System.out.println("Product not found.");
+                int stock = rs.getInt("stock");
+                if (stock < quantity) {
+                    System.out.println("Insufficient stock.");
+                    return false;
+                }
+
+                // Update stock
+                updateStmt.setInt(1, quantity);
+                updateStmt.setString(2, name);
+                int rowsAffected = updateStmt.executeUpdate();
+                if (rowsAffected <= 0) {
+                    System.out.println("Failed to update product stock.");
+                    return false;
+                }
+
+                // Insert history
+                String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+                historyStmt.setString(1, username);
+                historyStmt.setString(2, name);
+                historyStmt.setInt(3, quantity);
+                historyStmt.setString(4, timestamp);
+                historyStmt.executeUpdate();
+
+                // Commit the transaction
+                conn.commit();
+                return true;
+
+            } catch (Exception innerEx) {
+                conn.rollback(); // Roll back if anything failed
+                System.out.println("Transaction rolled back due to: " + innerEx.getMessage());
                 return false;
             }
-
-            int stock = rs.getInt("stock");
-
-            if (stock < quantity) {
-                System.out.println("Insufficient stock.");
-                return false;
-            }
-
-            updateStmt.setInt(1, quantity);
-            updateStmt.setString(2, name);
-
-            int rowsAffected = updateStmt.executeUpdate();
-            return rowsAffected > 0;
 
         } catch (Exception ex) {
             System.out.println("Error during purchase: " + ex.getMessage());
             return false;
         }
     }
+
 
     
     public boolean usernameExists(String username) {
