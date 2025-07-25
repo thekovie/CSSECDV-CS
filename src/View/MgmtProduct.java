@@ -297,6 +297,7 @@ public class MgmtProduct extends javax.swing.JPanel {
             JTextField nameFld = new JTextField(tableModel.getValueAt(table.getSelectedRow(), 0) + "");
             JTextField stockFld = new JTextField(tableModel.getValueAt(table.getSelectedRow(), 1) + "");
             JTextField priceFld = new JTextField(tableModel.getValueAt(table.getSelectedRow(), 2) + "");
+            String originalName = tableModel.getValueAt(table.getSelectedRow(), 0).toString();
 
             designer(nameFld, "PRODUCT NAME");
             designer(stockFld, "PRODUCT STOCK");
@@ -331,6 +332,7 @@ public class MgmtProduct extends javax.swing.JPanel {
 
                     // Perform update
                     sqlite.updateProduct(
+                        originalName,
                         nameFld.getText().trim(),
                         stock,
                         price.doubleValue(),
@@ -348,11 +350,39 @@ public class MgmtProduct extends javax.swing.JPanel {
     }//GEN-LAST:event_editBtnActionPerformed
 
     private void deleteBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
-            int result = JOptionPane.showConfirmDialog(null, "Are you sure you want to delete " + tableModel.getValueAt(table.getSelectedRow(), 0) + "?", "DELETE PRODUCT", JOptionPane.YES_NO_OPTION);
-            
+        if (table.getSelectedRow() >= 0) {
+            // Role check
+            if (SessionManager.getSessionRole() < SessionManager.ROLE_STAFF) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "You are not allowed to access this feature.",
+                    "Access Denied",
+                    JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            String productName = tableModel.getValueAt(table.getSelectedRow(), 0).toString();
+
+            int result = JOptionPane.showConfirmDialog(
+                null,
+                "Are you sure you want to delete the product \"" + productName + "\"?",
+                "DELETE PRODUCT",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE
+            );
+
             if (result == JOptionPane.YES_OPTION) {
-                System.out.println(tableModel.getValueAt(table.getSelectedRow(), 0));
+                try {
+                    Validator.validateProductName(productName); // sanitize and validate
+                    sqlite.deleteProduct(productName, SessionManager.getUsername());
+                    init(); // refresh table
+                    JOptionPane.showMessageDialog(this, "Product deleted successfully!");
+                } catch (IllegalArgumentException e) {
+                    JOptionPane.showMessageDialog(this, e.getMessage(), "Delete Failed", JOptionPane.WARNING_MESSAGE);
+                } catch (RuntimeException e) {
+                    JOptionPane.showMessageDialog(this, "Unexpected error: " + e.getMessage(), "Delete Failed", JOptionPane.ERROR_MESSAGE);
+                }
             }
         }
     }//GEN-LAST:event_deleteBtnActionPerformed
