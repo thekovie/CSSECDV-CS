@@ -113,6 +113,22 @@ public class Validator {
     }
     
     
+    public static void validateRoleChange(String targetUsername, int currentRole, int newRole) {
+        // Cannot change role of an admin
+        if (currentRole == 5) {
+            throw new IllegalArgumentException("You cannot modify the role of another admin.");
+        }
+
+        if (newRole < 1 || newRole > 5) {
+            throw new IllegalArgumentException("Invalid role selected.");
+        }
+
+        if (currentRole == newRole) {
+            throw new IllegalArgumentException("The user already has this role.");
+        }
+
+    }
+    
 
     
     

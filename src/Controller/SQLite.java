@@ -569,6 +569,82 @@ public class SQLite {
             }
         }
     }
+    
+    public void updateUserRole(String username, int newRole, String performedBy) {
+        String sql;
+        String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+        String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+
+        if (newRole == 1) {
+            // Disabled role: lock account
+            sql = "UPDATE users SET role = 1, locked = 1 WHERE username = ?";
+        } else {
+            // Any other role: unlock account
+            sql = "UPDATE users SET role = ?, locked = 0 WHERE username = ?";
+        }
+
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false);
+
+            try (
+                PreparedStatement roleStmt = conn.prepareStatement(sql);
+                PreparedStatement logStmt = conn.prepareStatement(logSql)
+            ) {
+                if (newRole == 1) {
+                    roleStmt.setString(1, username);
+                } else {
+                    roleStmt.setInt(1, newRole);
+                    roleStmt.setString(2, username);
+                }
+
+                int updated = roleStmt.executeUpdate();
+                if (updated == 0) {
+                    conn.rollback();
+                    throw new SQLException("No user found with username: " + username);
+                }
+
+                String roleLabel;
+                
+                switch (newRole) {
+                    case 0:
+                        roleLabel = "ADMIN";
+                        break;
+                    case 1:
+                        roleLabel = "DISABLED";
+                        break;
+                    case 2:
+                        roleLabel = "CLIENT";
+                        break;
+                    case 3:
+                        roleLabel = "STAFF";
+                        break;
+                    case 4:
+                        roleLabel = "MANAGER";
+                        break;
+                    default:
+                        roleLabel = "UNKNOWN(" + newRole + ")";
+                        break;
+                }
+
+
+                logStmt.setString(1, "NOTICE");
+                logStmt.setString(2, performedBy);
+                logStmt.setString(3, "Updated role of '" + username + "' to " + roleLabel + ".");
+                logStmt.setString(4, timestamp);
+                logStmt.executeUpdate();
+
+                conn.commit();
+            } catch (Exception ex) {
+                conn.rollback();
+                throw new RuntimeException("Failed to update user role: " + ex.getMessage());
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Database error: " + e.getMessage());
+        }
+    }
+
+
 
     public void removeUser(String username) {
         String sql = "DELETE FROM users WHERE username = ?";

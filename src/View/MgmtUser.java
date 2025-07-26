@@ -6,7 +6,9 @@
 package View;
 
 import Controller.SQLite;
+import Controller.SessionManager;
 import Model.User;
+import Model.Validator;
 import java.util.ArrayList;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
@@ -179,18 +181,31 @@ public class MgmtUser extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
 
     private void editRoleBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_editRoleBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
-            String[] options = {"1-DISABLED","2-CLIENT","3-STAFF","4-MANAGER","5-ADMIN"};
-            JComboBox optionList = new JComboBox(options);
-            
-            optionList.setSelectedIndex((int)tableModel.getValueAt(table.getSelectedRow(), 2) - 1);
-            
-            String result = (String) JOptionPane.showInputDialog(null, "USER: " + tableModel.getValueAt(table.getSelectedRow(), 0), 
-                "EDIT USER ROLE", JOptionPane.QUESTION_MESSAGE, null, options, options[(int)tableModel.getValueAt(table.getSelectedRow(), 2) - 1]);
-            
-            if(result != null){
-                System.out.println(tableModel.getValueAt(table.getSelectedRow(), 0));
-                System.out.println(result.charAt(0));
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow < 0) return;
+
+        String username = (String) tableModel.getValueAt(selectedRow, 0);
+        int currentRole = (int) tableModel.getValueAt(selectedRow, 2);
+
+        String[] options = {"1-DISABLED","2-CLIENT","3-STAFF","4-MANAGER","5-ADMIN"};
+        JComboBox<String> optionList = new JComboBox<>(options);
+        optionList.setSelectedIndex(currentRole - 1); // roles are 1-based
+
+        int result = JOptionPane.showConfirmDialog(null, optionList,
+                "EDIT USER ROLE: " + username, JOptionPane.OK_CANCEL_OPTION);
+
+        if (result == JOptionPane.OK_OPTION) {
+            try {
+                int newRole = optionList.getSelectedIndex() + 1;
+                Validator.validateRoleChange(username, currentRole, newRole);
+
+                sqlite.updateUserRole(username, newRole, SessionManager.getUsername());
+
+                JOptionPane.showMessageDialog(null, "Role updated successfully.");
+                init(); // reload table
+
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(null, ex.getMessage(), "Invalid Role Change", JOptionPane.ERROR_MESSAGE);
             }
         }
     }//GEN-LAST:event_editRoleBtnActionPerformed
