@@ -195,6 +195,19 @@ public class MgmtUser extends javax.swing.JPanel {
                 "EDIT USER ROLE: " + username, JOptionPane.OK_CANCEL_OPTION);
 
         if (result == JOptionPane.OK_OPTION) {
+            
+            // validate the user 
+            if (SessionManager.getSessionRole() < SessionManager.ROLE_ADMINISTRATOR) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "You are not allowed to access this feature.",
+                    "Access Denied",
+                    JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+            
+            
             try {
                 int newRole = optionList.getSelectedIndex() + 1;
                 Validator.validateRoleChange(username, currentRole, newRole);
