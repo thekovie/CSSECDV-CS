@@ -646,19 +646,39 @@ public class SQLite {
 
 
 
-    public void removeUser(String username) {
-        String sql = "DELETE FROM users WHERE username = ?";
+    public void removeUser(String targetUsername, String performedBy) {
+        String sqlDelete = "DELETE FROM users WHERE username = ?";
+        String sqlLog = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(driverURL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false);
 
-            pstmt.setString(1, username);
-            int rows = pstmt.executeUpdate();
+            try (
+                PreparedStatement deleteStmt = conn.prepareStatement(sqlDelete);
+                PreparedStatement logStmt = conn.prepareStatement(sqlLog)
+            ) {
+                // Delete user
+                deleteStmt.setString(1, targetUsername);
+                int rows = deleteStmt.executeUpdate();
 
-            if (rows > 0) {
-                System.out.println("User " + username + " has been deleted.");
-            } else {
-                System.out.println("No user found with username: " + username);
+                if (rows == 0) {
+                    conn.rollback();
+                    throw new IllegalArgumentException("User not found. Deletion failed.");
+                }
+
+                // Insert log
+                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                logStmt.setString(1, "WARNING");
+                logStmt.setString(2, performedBy);
+                logStmt.setString(3, "Deleted user: " + targetUsername);
+                logStmt.setString(4, timestamp);
+                logStmt.executeUpdate();
+
+                conn.commit();
+                System.out.println("User " + targetUsername + " has been deleted.");
+            } catch (Exception innerEx) {
+                conn.rollback();
+                throw new RuntimeException("Transaction failed: " + innerEx.getMessage());
             }
 
         } catch (Exception ex) {

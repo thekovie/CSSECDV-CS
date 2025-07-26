@@ -1,5 +1,7 @@
 package Model;
 
+import Controller.SQLite;
+import Controller.SessionManager;
 import com.nulabinc.zxcvbn.Strength;
 import com.nulabinc.zxcvbn.Zxcvbn;
 import java.math.BigDecimal;
@@ -129,6 +131,22 @@ public class Validator {
 
     }
     
+    
+    public static boolean canDeleteUser(String targetUsername, String currentUsername, int currentUserRole, SQLite sqlite) {
+        if (targetUsername.equals(currentUsername)) {
+            return false; // cannot delete self
+        }
+
+        User targetUser = sqlite.getUser(targetUsername);
+        if (targetUser == null) return false;
+        
+        if (targetUser.getRole() == SessionManager.ROLE_ADMINISTRATOR) {
+            return false; // no one can delete an admin, not even another admin
+        }
+
+        return !(targetUser.getRole() == 0 && currentUserRole != SessionManager.ROLE_ADMINISTRATOR);
+    }
+
 
     
     

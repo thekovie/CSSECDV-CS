@@ -9,6 +9,8 @@ import Controller.SQLite;
 import Controller.SessionManager;
 import Model.User;
 import Model.Validator;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
@@ -224,12 +226,44 @@ public class MgmtUser extends javax.swing.JPanel {
     }//GEN-LAST:event_editRoleBtnActionPerformed
 
     private void deleteBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
-            int result = JOptionPane.showConfirmDialog(null, "Are you sure you want to delete " + tableModel.getValueAt(table.getSelectedRow(), 0) + "?", "DELETE USER", JOptionPane.YES_NO_OPTION);
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow >= 0) {
+            String usernameToDelete = tableModel.getValueAt(selectedRow, 0).toString();
+            String currentUsername = SessionManager.getUsername();
+            int currentUserRole = SessionManager.getSessionRole();
             
-            if (result == JOptionPane.YES_OPTION) {
-                System.out.println(tableModel.getValueAt(table.getSelectedRow(), 0));
+            
+            if (SessionManager.getSessionRole() < SessionManager.ROLE_ADMINISTRATOR) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "You are not allowed to access this feature.",
+                    "Access Denied",
+                    JOptionPane.WARNING_MESSAGE
+                );
+                return;
             }
+
+            if (!Validator.canDeleteUser(usernameToDelete, currentUsername, currentUserRole, sqlite)) {
+                JOptionPane.showMessageDialog(null, "You are not allowed to delete this user.", "ACCESS DENIED", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            int result = JOptionPane.showConfirmDialog(
+                null,
+                "Are you sure you want to delete " + usernameToDelete + "?",
+                "DELETE USER",
+                JOptionPane.YES_NO_OPTION
+            );
+
+            if (result == JOptionPane.YES_OPTION) {
+                sqlite.removeUser(usernameToDelete, SessionManager.getUsername());
+                
+                init();
+
+                JOptionPane.showMessageDialog(null, "User successfully deleted.");
+            }
+        } else {
+            JOptionPane.showMessageDialog(null, "Please select a user to delete.");
         }
     }//GEN-LAST:event_deleteBtnActionPerformed
 
