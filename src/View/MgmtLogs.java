@@ -252,10 +252,49 @@ public class MgmtLogs extends javax.swing.JPanel {
     }//GEN-LAST:event_clearBtnActionPerformed
 
     private void debugBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_debugBtnActionPerformed
-        if(sqlite.DEBUG_MODE == 1)
+        // Only admins can toggle debug mode
+        if (SessionManager.getSessionRole() < SessionManager.ROLE_ADMINISTRATOR) {
+            JOptionPane.showMessageDialog(
+                this,
+                "You are not allowed to access this feature.",
+                "Access Denied",
+                JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        boolean confirmed = reauthenticateCurrentUser(this);
+        if (!confirmed) return;
+
+        String action = sqlite.DEBUG_MODE == 1 ? "DISABLE" : "ENABLE";
+        int choice = JOptionPane.showConfirmDialog(
+            this,
+            "You are about to " + action + " DEBUG MODE.\n\n"
+            + "This action allows printing internal SQL and database activity to console.\n\n"
+            + "Performed by: " + SessionManager.getUsername() + "\n\n"
+            + "Proceed with " + action + "?",
+            "Toggle Debug Mode",
+            JOptionPane.YES_NO_OPTION
+        );
+
+        if (choice != JOptionPane.YES_OPTION) return;
+
+        if (sqlite.DEBUG_MODE == 1) {
             sqlite.DEBUG_MODE = 0;
-        else
+            JOptionPane.showMessageDialog(this, "Debug mode DISABLED.");
+        } else {
             sqlite.DEBUG_MODE = 1;
+            JOptionPane.showMessageDialog(this, "Debug mode ENABLED.");
+
+            // Create critical log
+            String timestamp = new Timestamp(new Date().getTime()).toString();
+            sqlite.addLogs(
+                "CRITICAL",
+                SessionManager.getUsername(),
+                "DEBUG MODE was ENABLED by administrator.",
+                timestamp
+            );
+        }
     }//GEN-LAST:event_debugBtnActionPerformed
 
 

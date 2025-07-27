@@ -16,10 +16,21 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-public class SQLite {
-    
+public class SQLite {    
     public int DEBUG_MODE = 0;
     String driverURL = "jdbc:sqlite:" + "database.db";
+    
+    // this is in charge of printing debug logs whenever admin
+    // decides to use the debug mode.
+    private final LoggerUtil logger;
+    
+    public SQLite() {
+        this.logger = new LoggerUtil(this);
+    }
+    
+    public LoggerUtil getLogger() {
+        return logger;
+    }
     
     public void createNewDatabase() {
         try (Connection conn = DriverManager.getConnection(driverURL)) {
@@ -157,6 +168,9 @@ public class SQLite {
     public void addHistory(String username, String name, int stock, String timestamp) {
         String sql = "INSERT INTO history(username, name, stock, timestamp) VALUES (?, ?, ?, ?)";
 
+        logger.debug("Preparing to insert history record.");
+        logger.logSqlParams("INSERT INTO history", username, name, stock, timestamp);
+
         try (Connection conn = DriverManager.getConnection(driverURL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -164,15 +178,22 @@ public class SQLite {
             pstmt.setString(2, name);
             pstmt.setInt(3, stock);
             pstmt.setString(4, timestamp);
-            pstmt.executeUpdate();
+
+            int rows = pstmt.executeUpdate();
+            logger.debug("History record inserted. Rows affected: " + rows);
 
         } catch (Exception ex) {
             System.out.print("Error adding history: " + ex.getMessage());
+            logger.debug("Failed to insert history: " + ex.getMessage());
         }
     }
 
+
     public void addLogs(String event, String username, String desc, String timestamp) {
         String sql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+
+        logger.debug("Preparing to insert log.");
+        logger.logSqlParams("INSERT INTO logs", event, username, desc, timestamp);
 
         try (Connection conn = DriverManager.getConnection(driverURL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -181,54 +202,72 @@ public class SQLite {
             pstmt.setString(2, username);
             pstmt.setString(3, desc);
             pstmt.setString(4, timestamp);
-            pstmt.executeUpdate();
+
+            int rows = pstmt.executeUpdate();
+            logger.debug("Log inserted. Rows affected: " + rows);
 
         } catch (Exception ex) {
             System.out.print("Error adding log: " + ex.getMessage());
+            logger.debug("Failed to insert log: " + ex.getMessage());
         }
     }
 
-    public void addProduct(String name, int stock, double price, String performedBy) {
-        String productSql = "INSERT INTO product(name, stock, price) VALUES (?, ?, ?)";
-        String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+public void addProduct(String name, int stock, double price, String performedBy) {
+    String productSql = "INSERT INTO product(name, stock, price) VALUES (?, ?, ?)";
+    String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(driverURL)) {
-            conn.setAutoCommit(false);
+    logger.debug("Starting transaction to add product: " + name);
+    logger.logSqlParams("Product parameters", name, stock, price);
 
-            try (
-                PreparedStatement productStmt = conn.prepareStatement(productSql);
-                PreparedStatement logStmt = conn.prepareStatement(logSql)
-            ) {
-                productStmt.setString(1, name);
-                productStmt.setInt(2, stock);
-                productStmt.setDouble(3, price);
-                productStmt.executeUpdate();
+    try (Connection conn = DriverManager.getConnection(driverURL)) {
+        conn.setAutoCommit(false);
 
-                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
-                logStmt.setString(1, "NOTICE");
-                logStmt.setString(2, performedBy);
-                logStmt.setString(3, "Product \"" + name + "\" added.");
-                logStmt.setString(4, timestamp);
-                logStmt.executeUpdate();
+        try (
+            PreparedStatement productStmt = conn.prepareStatement(productSql);
+            PreparedStatement logStmt = conn.prepareStatement(logSql)
+        ) {
+            productStmt.setString(1, name);
+            productStmt.setInt(2, stock);
+            productStmt.setDouble(3, price);
+            int rows = productStmt.executeUpdate();
 
-                conn.commit();
-            } catch (Exception ex) {
-                conn.rollback();
-                if (ex.getMessage().contains("UNIQUE constraint failed: product.name")) {
-                    throw new IllegalArgumentException("This product already exists. Please use the EDIT feature instead.");
-                } else {
-                    throw new RuntimeException("Error adding product: " + ex.getMessage());
-                }
-            }
+            logger.debug("Product insert executed. Rows affected: " + rows);
+
+            String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+            logStmt.setString(1, "NOTICE");
+            logStmt.setString(2, performedBy);
+            logStmt.setString(3, "Product \"" + name + "\" added.");
+            logStmt.setString(4, timestamp);
+            int logRows = logStmt.executeUpdate();
+
+            logger.debug("Log insert executed. Rows affected: " + logRows);
+
+            conn.commit();
+            logger.debug("Transaction committed successfully.");
 
         } catch (Exception ex) {
-            throw new RuntimeException("Transaction failed: " + ex.getMessage());
+            conn.rollback();
+            logger.debug("Transaction rolled back due to error: " + ex.getMessage());
+
+            if (ex.getMessage().contains("UNIQUE constraint failed: product.name")) {
+                throw new IllegalArgumentException("This product already exists. Please use the EDIT feature instead.");
+            } else {
+                throw new RuntimeException("Error adding product: " + ex.getMessage());
+            }
         }
+
+    } catch (Exception ex) {
+        logger.debug("Connection or outer transaction failure: " + ex.getMessage());
+        throw new RuntimeException("Transaction failed: " + ex.getMessage());
     }
+}
 
     public void updateProduct(String originalName, String newName, int newStock, double newPrice, String performedBy) {
         String updateSql = "UPDATE product SET name = ?, stock = ?, price = ? WHERE name = ?";
         String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+
+        logger.debug("Starting transaction to update product: " + originalName);
+        logger.logSqlParams("Update parameters", newName, newStock, newPrice, originalName);
 
         try (Connection conn = DriverManager.getConnection(driverURL)) {
             conn.setAutoCommit(false);
@@ -240,11 +279,14 @@ public class SQLite {
                 updateStmt.setString(1, newName);
                 updateStmt.setInt(2, newStock);
                 updateStmt.setDouble(3, newPrice);
-                updateStmt.setString(4, originalName); // use original name to find row
+                updateStmt.setString(4, originalName);
 
                 int rowsAffected = updateStmt.executeUpdate();
+                logger.debug("Product update executed. Rows affected: " + rowsAffected);
+
                 if (rowsAffected == 0) {
                     conn.rollback();
+                    logger.debug("Update failed. No rows affected. Rolling back transaction.");
                     throw new IllegalArgumentException("Product not found. Update failed.");
                 }
 
@@ -253,15 +295,21 @@ public class SQLite {
                 logStmt.setString(2, performedBy);
                 logStmt.setString(3, "Product \"" + originalName + "\" updated to \"" + newName + "\".");
                 logStmt.setString(4, timestamp);
-                logStmt.executeUpdate();
+                int logRows = logStmt.executeUpdate();
+
+                logger.debug("Log insert executed. Rows affected: " + logRows);
 
                 conn.commit();
+                logger.debug("Transaction committed successfully.");
+
             } catch (Exception ex) {
                 conn.rollback();
+                logger.debug("Transaction rolled back due to error: " + ex.getMessage());
                 throw new RuntimeException("Error updating product: " + ex.getMessage());
             }
 
         } catch (Exception ex) {
+            logger.debug("Connection or outer transaction failure: " + ex.getMessage());
             throw new RuntimeException("Transaction failed: " + ex.getMessage());
         }
     }
@@ -322,6 +370,9 @@ public class SQLite {
         String updateSql = "UPDATE product SET stock = stock - ? WHERE name = ?";
         String historySql = "INSERT INTO history(username, name, stock, timestamp) VALUES (?, ?, ?, ?)";
 
+        logger.debug("Starting transaction to purchase product: " + name);
+        logger.logSqlParams("Input", name, quantity, username);
+
         try (Connection conn = DriverManager.getConnection(driverURL)) {
             conn.setAutoCommit(false); // Start transaction
 
@@ -333,14 +384,17 @@ public class SQLite {
                 // Fetch stock
                 selectStmt.setString(1, name);
                 ResultSet rs = selectStmt.executeQuery();
+
                 if (!rs.next()) {
-                    System.out.println("Product not found.");
+                    logger.debug("Product not found.");
                     return false;
                 }
 
                 int stock = rs.getInt("stock");
+                logger.debug("Current stock: " + stock + ", Requested quantity: " + quantity);
+
                 if (stock < quantity) {
-                    System.out.println("Insufficient stock.");
+                    logger.debug("Insufficient stock. Aborting transaction.");
                     return false;
                 }
 
@@ -348,8 +402,10 @@ public class SQLite {
                 updateStmt.setInt(1, quantity);
                 updateStmt.setString(2, name);
                 int rowsAffected = updateStmt.executeUpdate();
+                logger.debug("Product stock updated. Rows affected: " + rowsAffected);
+
                 if (rowsAffected <= 0) {
-                    System.out.println("Failed to update product stock.");
+                    logger.debug("Stock update failed. Aborting transaction.");
                     return false;
                 }
 
@@ -361,25 +417,31 @@ public class SQLite {
                 historyStmt.setString(4, timestamp);
                 historyStmt.executeUpdate();
 
+                logger.debug("Purchase history recorded for " + username + " at " + timestamp);
+
                 // Commit the transaction
                 conn.commit();
+                logger.debug("Transaction committed successfully.");
                 return true;
 
             } catch (Exception innerEx) {
-                conn.rollback(); // Roll back if anything failed
-                System.out.println("Transaction rolled back due to: " + innerEx.getMessage());
+                conn.rollback();
+                logger.debug("Transaction rolled back due to: " + innerEx.getMessage());
                 return false;
             }
 
         } catch (Exception ex) {
-            System.out.println("Error during purchase: " + ex.getMessage());
+            logger.debug("Connection error during purchase: " + ex.getMessage());
             return false;
         }
     }
-    
+
     public void deleteProduct(String name, String performedBy) {
         String softDeleteSql = "UPDATE product SET deleted = 1 WHERE name = ?";
         String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+
+        logger.debug("Starting transaction to soft delete product: " + name);
+        logger.logSqlParams("Delete Params", name, performedBy);
 
         try (Connection conn = DriverManager.getConnection(driverURL)) {
             conn.setAutoCommit(false);
@@ -390,26 +452,35 @@ public class SQLite {
             ) {
                 deleteStmt.setString(1, name);
                 int rowsAffected = deleteStmt.executeUpdate();
+                logger.debug("Soft delete executed. Rows affected: " + rowsAffected);
 
                 if (rowsAffected == 0) {
                     conn.rollback();
+                    logger.debug("No product found to delete. Rolling back.");
                     throw new IllegalArgumentException("Product not found. Deletion failed.");
                 }
 
                 String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                String logMessage = "Product \"" + name + "\" marked as deleted.";
+
                 logStmt.setString(1, "NOTICE");
                 logStmt.setString(2, performedBy);
-                logStmt.setString(3, "Product \"" + name + "\" marked as deleted.");
+                logStmt.setString(3, logMessage);
                 logStmt.setString(4, timestamp);
                 logStmt.executeUpdate();
 
+                logger.debug("Log entry inserted: " + logMessage);
+
                 conn.commit();
+                logger.debug("Transaction committed successfully.");
             } catch (Exception ex) {
                 conn.rollback();
+                logger.debug("Transaction rolled back due to error: " + ex.getMessage());
                 throw new RuntimeException("Error during soft deletion: " + ex.getMessage());
             }
 
         } catch (Exception ex) {
+            logger.debug("Connection or outer transaction failure: " + ex.getMessage());
             throw new RuntimeException("Transaction failed: " + ex.getMessage());
         }
     }
@@ -418,17 +489,24 @@ public class SQLite {
     public void addUser(String username, String password) {
         String sql = "INSERT INTO users(username, password) VALUES (?, ?)";
 
+        logger.debug("Preparing to insert user: " + username);
+        logger.logSqlParams("Insert User Params", username, "[PROTECTED]");
+
         try (Connection conn = DriverManager.getConnection(driverURL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, username);
             pstmt.setString(2, password);
-            pstmt.executeUpdate();
+            int rows = pstmt.executeUpdate();
+
+            logger.debug("User insert executed. Rows affected: " + rows);
 
         } catch (Exception ex) {
+            logger.debug("Failed to insert user: " + ex.getMessage());
             System.out.print("Error adding user: " + ex.getMessage());
         }
     }
+
 
     public ArrayList<History> getHistory(){
         String sql = "SELECT id, username, name, stock, timestamp FROM history";
@@ -553,26 +631,35 @@ public class SQLite {
     public void addUser(String username, String password, int role) {
         String sql = "INSERT INTO users(username, password, role) VALUES (?, ?, ?)";
 
+        logger.debug("Preparing to insert user: " + username);
+        logger.logSqlParams("Insert User Params", username, "[PROTECTED]", role);
+
         try (Connection conn = DriverManager.getConnection(driverURL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, username);
             pstmt.setString(2, password);
             pstmt.setInt(3, role);
-            pstmt.executeUpdate();
+            int rows = pstmt.executeUpdate();
+
+            logger.debug("User insert executed. Rows affected: " + rows);
 
         } catch (Exception ex) {
             if (ex.getMessage().contains("UNIQUE constraint failed: users.username")) {
+                logger.debug("Insert failed: Username already exists.");
                 System.out.print("Username already exists.");
             } else {
+                logger.debug("Insert failed: " + ex.getMessage());
                 System.out.print("Error adding user: " + ex.getMessage());
             }
         }
     }
-    
+
     public void updatePassword(String username, String newPassword) {
         String sqlUpdate = "UPDATE users SET password = ? WHERE username = ?";
         String sqlLog = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+
+        logger.debug("Starting password update transaction for user: " + username);
 
         try (Connection conn = DriverManager.getConnection(driverURL)) {
             conn.setAutoCommit(false); // Begin transaction
@@ -581,15 +668,18 @@ public class SQLite {
                 PreparedStatement updateStmt = conn.prepareStatement(sqlUpdate);
                 PreparedStatement logStmt = conn.prepareStatement(sqlLog)
             ) {
-                // Hash the password before saving (assumes User.hashPassword is available)
+                // Hash the password before saving
                 String hashedPassword = User.hashPassword(newPassword);
 
                 // Update user password
                 updateStmt.setString(1, hashedPassword);
                 updateStmt.setString(2, username);
+                logger.logSqlParams("Update Password Params", "[HASHED_PASSWORD]", username);
                 int rowsAffected = updateStmt.executeUpdate();
 
                 if (rowsAffected == 0) {
+                    conn.rollback();
+                    logger.debug("No rows affected. Password update failed for user: " + username);
                     throw new SQLException("User not found. Password update failed.");
                 }
 
@@ -602,28 +692,32 @@ public class SQLite {
                 logStmt.executeUpdate();
 
                 conn.commit();
+                logger.debug("Password update and log committed for user: " + username);
+
             } catch (Exception ex) {
                 conn.rollback();
+                logger.debug("Transaction rolled back due to: " + ex.getMessage());
                 throw new RuntimeException("Error updating password: " + ex.getMessage());
             }
 
         } catch (SQLException e) {
+            logger.debug("Password update transaction failed: " + e.getMessage());
             throw new RuntimeException("Transaction failed: " + e.getMessage());
         }
     }
-    
+ 
     public void updateUserRole(String username, int newRole, String performedBy) {
         String sql;
         String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
         String timestamp = new Timestamp(System.currentTimeMillis()).toString();
 
-        if (newRole == 1) {
-            // Disabled role: lock account
-            sql = "UPDATE users SET role = 1, locked = 1 WHERE username = ?";
-        } else {
-            // Any other role: unlock account
-            sql = "UPDATE users SET role = ?, locked = 0 WHERE username = ?";
-        }
+        boolean isDisable = (newRole == SessionManager.ROLE_DISABLED);
+        sql = isDisable
+            ? "UPDATE users SET role = 1, locked = 1 WHERE username = ?"
+            : "UPDATE users SET role = ?, locked = 0 WHERE username = ?";
+
+        logger.debug("Preparing to update role for user: " + username);
+        logger.debug("SQL: " + sql);
 
         try (Connection conn = DriverManager.getConnection(driverURL)) {
             conn.setAutoCommit(false);
@@ -632,16 +726,21 @@ public class SQLite {
                 PreparedStatement roleStmt = conn.prepareStatement(sql);
                 PreparedStatement logStmt = conn.prepareStatement(logSql)
             ) {
-                if (newRole == 1) {
+                if (isDisable) {
                     roleStmt.setString(1, username);
+                    logger.logSqlParams("Role Update Params", username);
                 } else {
                     roleStmt.setInt(1, newRole);
                     roleStmt.setString(2, username);
+                    logger.logSqlParams("Role Update Params", newRole, username);
                 }
 
                 int updated = roleStmt.executeUpdate();
+                logger.debug("Rows affected by role update: " + updated);
+
                 if (updated == 0) {
                     conn.rollback();
+                    logger.debug("No user found. Rolling back.");
                     throw new SQLException("No user found with username: " + username);
                 }
 
@@ -667,30 +766,36 @@ public class SQLite {
                         break;
                 }
 
-
-
                 logStmt.setString(1, "ALERT");
                 logStmt.setString(2, performedBy);
                 logStmt.setString(3, "Updated role of '" + username + "' to " + roleLabel + ".");
                 logStmt.setString(4, timestamp);
+                logger.logSqlParams("Log Params", "ALERT", performedBy, "Updated role of '" + username + "' to " + roleLabel + ".", timestamp);
                 logStmt.executeUpdate();
 
                 conn.commit();
+                logger.debug("Transaction committed. Role update complete for " + username);
+
             } catch (Exception ex) {
                 conn.rollback();
+                logger.debug("Transaction rolled back due to: " + ex.getMessage());
                 throw new RuntimeException("Failed to update user role: " + ex.getMessage());
             }
 
         } catch (SQLException e) {
+            logger.debug("Database connection error: " + e.getMessage());
             throw new RuntimeException("Database error: " + e.getMessage());
         }
     }
 
-
-
     public void removeUser(String targetUsername, String performedBy) {
         String sqlDelete = "DELETE FROM users WHERE username = ?";
         String sqlLog = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+        String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+
+        logger.debug("Preparing to delete user: " + targetUsername);
+        logger.debug("SQL (Delete): " + sqlDelete);
+        logger.debug("SQL (Log): " + sqlLog);
 
         try (Connection conn = DriverManager.getConnection(driverURL)) {
             conn.setAutoCommit(false);
@@ -699,31 +804,38 @@ public class SQLite {
                 PreparedStatement deleteStmt = conn.prepareStatement(sqlDelete);
                 PreparedStatement logStmt = conn.prepareStatement(sqlLog)
             ) {
-                // Delete user
                 deleteStmt.setString(1, targetUsername);
+                logger.logSqlParams("Delete Params", targetUsername);
+
                 int rows = deleteStmt.executeUpdate();
+                logger.debug("Rows affected by deletion: " + rows);
 
                 if (rows == 0) {
                     conn.rollback();
+                    logger.debug("User not found. Rolling back.");
                     throw new IllegalArgumentException("User not found. Deletion failed.");
                 }
 
-                // Insert log
-                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
                 logStmt.setString(1, "CRITICAL");
                 logStmt.setString(2, performedBy);
                 logStmt.setString(3, "Deleted user: " + targetUsername);
                 logStmt.setString(4, timestamp);
-                logStmt.executeUpdate();
+                logger.logSqlParams("Log Params", "CRITICAL", performedBy, "Deleted user: " + targetUsername, timestamp);
 
+                logStmt.executeUpdate();
                 conn.commit();
+
+                logger.debug("User deletion committed successfully.");
                 System.out.println("User " + targetUsername + " has been deleted.");
+
             } catch (Exception innerEx) {
                 conn.rollback();
+                logger.debug("Transaction rolled back due to: " + innerEx.getMessage());
                 throw new RuntimeException("Transaction failed: " + innerEx.getMessage());
             }
 
         } catch (Exception ex) {
+            logger.debug("Error during user deletion: " + ex.getMessage());
             System.out.print("Error removing user: " + ex.getMessage());
         }
     }
@@ -778,6 +890,11 @@ public class SQLite {
     public void lockUser(String username, String performedBy) {
         String sqlLock = "UPDATE users SET locked = 1 WHERE username = ?";
         String sqlLog = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+        String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+
+        logger.debug("Preparing to lock user: " + username);
+        logger.debug("SQL (Lock): " + sqlLock);
+        logger.debug("SQL (Log): " + sqlLog);
 
         try (Connection conn = DriverManager.getConnection(driverURL)) {
             conn.setAutoCommit(false); // Begin transaction
@@ -786,31 +903,36 @@ public class SQLite {
                 PreparedStatement lockStmt = conn.prepareStatement(sqlLock);
                 PreparedStatement logStmt = conn.prepareStatement(sqlLog)
             ) {
-                // Lock the user
                 lockStmt.setString(1, username);
+                logger.logSqlParams("Lock Params", username);
+
                 int rowsAffected = lockStmt.executeUpdate();
+                logger.debug("Rows affected by lock: " + rowsAffected);
 
                 if (rowsAffected == 0) {
+                    conn.rollback();
+                    logger.debug("User not found or already locked. Rolling back.");
                     throw new SQLException("User not found or already locked.");
                 }
 
-                // Insert log
-                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
                 logStmt.setString(1, "ALERT");
                 logStmt.setString(2, performedBy);
                 logStmt.setString(3, "User '" + username + "' account was locked.");
                 logStmt.setString(4, timestamp);
+                logger.logSqlParams("Log Params", "ALERT", performedBy, "User '" + username + "' account was locked.", timestamp);
+
                 logStmt.executeUpdate();
 
-                // Commit both operations
                 conn.commit();
+                logger.debug("Lock user transaction committed successfully.");
 
             } catch (Exception innerEx) {
-                conn.rollback(); // Rollback on error
-                System.out.println("Transaction rolled back: " + innerEx.getMessage());
+                conn.rollback();
+                logger.debug("Transaction rolled back due to: " + innerEx.getMessage());
             }
 
         } catch (SQLException e) {
+            logger.debug("Error locking user: " + e.getMessage());
             System.out.println("Error locking user: " + e.getMessage());
         }
     }
@@ -818,6 +940,11 @@ public class SQLite {
     public void lockUserWithReason(String username, String performedBy, String reason) {
         String sqlLock = "UPDATE users SET locked = 1 WHERE username = ?";
         String sqlLog = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+        String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+
+        logger.debug("Preparing to lock user with reason: " + username);
+        logger.debug("SQL (Lock): " + sqlLock);
+        logger.debug("SQL (Log): " + sqlLog);
 
         try (Connection conn = DriverManager.getConnection(driverURL)) {
             conn.setAutoCommit(false);
@@ -827,23 +954,37 @@ public class SQLite {
                 PreparedStatement logStmt = conn.prepareStatement(sqlLog)
             ) {
                 lockStmt.setString(1, username);
-                if (lockStmt.executeUpdate() == 0) {
+                logger.logSqlParams("Lock Params", username);
+
+                int lockRows = lockStmt.executeUpdate();
+                logger.debug("Rows affected by lock: " + lockRows);
+
+                if (lockRows == 0) {
+                    conn.rollback();
+                    logger.debug("User not found or already locked. Rolling back.");
                     throw new SQLException("User not found or already locked.");
                 }
 
-                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                String logMessage = "User " + username + " was locked by " + performedBy + ". REASON: " + reason;
                 logStmt.setString(1, "CRITICAL");
                 logStmt.setString(2, performedBy);
-                logStmt.setString(3, "User " + username + " was locked by " + performedBy + ". REASON: " + reason);
+                logStmt.setString(3, logMessage);
                 logStmt.setString(4, timestamp);
+                logger.logSqlParams("Log Params", "CRITICAL", performedBy, logMessage, timestamp);
+
                 logStmt.executeUpdate();
 
                 conn.commit();
+                logger.debug("Lock with reason transaction committed successfully.");
+
             } catch (Exception ex) {
                 conn.rollback();
+                logger.debug("Transaction rolled back due to: " + ex.getMessage());
                 throw new RuntimeException("Lock operation failed: " + ex.getMessage());
             }
+
         } catch (SQLException e) {
+            logger.debug("Transaction failed: " + e.getMessage());
             throw new RuntimeException("Transaction failed: " + e.getMessage());
         }
     }
@@ -851,6 +992,11 @@ public class SQLite {
     public void unlockUser(String username, String performedBy) {
         String sqlUnlock = "UPDATE users SET locked = 0 WHERE username = ?";
         String sqlLog = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+        String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+
+        logger.debug("Preparing to unlock user: " + username);
+        logger.debug("SQL (Unlock): " + sqlUnlock);
+        logger.debug("SQL (Log): " + sqlLog);
 
         try (Connection conn = DriverManager.getConnection(driverURL)) {
             conn.setAutoCommit(false); // Begin transaction
@@ -859,34 +1005,42 @@ public class SQLite {
                 PreparedStatement unlockStmt = conn.prepareStatement(sqlUnlock);
                 PreparedStatement logStmt = conn.prepareStatement(sqlLog)
             ) {
-                // Unlock the user
                 unlockStmt.setString(1, username);
+                logger.logSqlParams("Unlock Params", username);
+
                 int rowsAffected = unlockStmt.executeUpdate();
+                logger.debug("Rows affected by unlock: " + rowsAffected);
 
                 if (rowsAffected == 0) {
+                    conn.rollback();
+                    logger.debug("User not found or already unlocked. Rolling back.");
                     throw new SQLException("User not found or already unlocked.");
                 }
 
-                // Insert log
-                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                String message = "User '" + username + "' account was unlocked.";
                 logStmt.setString(1, "CRITICAL");
                 logStmt.setString(2, performedBy);
-                logStmt.setString(3, "User '" + username + "' account was unlocked.");
+                logStmt.setString(3, message);
                 logStmt.setString(4, timestamp);
+                logger.logSqlParams("Log Params", "CRITICAL", performedBy, message, timestamp);
+
                 logStmt.executeUpdate();
 
-                // Commit both operations
                 conn.commit();
+                logger.debug("Unlock transaction committed successfully.");
 
             } catch (Exception innerEx) {
-                conn.rollback(); // Rollback on error
-                System.out.println("Transaction rolled back: " + innerEx.getMessage());
+                conn.rollback();
+                logger.debug("Transaction rolled back: " + innerEx.getMessage());
+                throw new RuntimeException("Unlock operation failed: " + innerEx.getMessage());
             }
 
         } catch (SQLException e) {
-            System.out.println("Error unlocking user: " + e.getMessage());
+            logger.debug("Error unlocking user: " + e.getMessage());
+            throw new RuntimeException("Transaction failed: " + e.getMessage());
         }
     }
+
 
     
     
@@ -1018,19 +1172,26 @@ public class SQLite {
 
     public void clearLogByDetails(String event, String username, String timestamp) {
         String sql = "DELETE FROM logs WHERE event = ? AND username = ? AND timestamp = ?";
+
+        logger.debug("Preparing to clear log with specific details.");
+        logger.debug("SQL: " + sql);
+        logger.logSqlParams("Clear Log Params", event, username, timestamp);
+
         try (Connection conn = DriverManager.getConnection(driverURL);
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setString(1, event);
             stmt.setString(2, username);
             stmt.setString(3, timestamp);
-            stmt.executeUpdate();
+
+            int rows = stmt.executeUpdate();
+            logger.debug("Log entries deleted: " + rows);
+
         } catch (SQLException ex) {
+            logger.debug("Error deleting log: " + ex.getMessage());
             System.out.println("Error deleting log: " + ex.getMessage());
         }
     }
-
-
 
 
 }
