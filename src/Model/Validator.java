@@ -157,4 +157,17 @@ public class Validator {
     }
     
     
+    public static void validateSearchQuery(String input) {
+    if (input == null || input.trim().isEmpty()) {
+        throw new IllegalArgumentException("Search field cannot be empty.");
+    }
+
+    if (input.trim().length() > 100) {
+        throw new IllegalArgumentException("Search input is too long.");
+    }
+
+    if (!matchesPattern(input, "^[A-Za-z0-9\\-_. ]+$")) {
+        throw new IllegalArgumentException("Search input contains invalid characters.");
+    }
+}
 }

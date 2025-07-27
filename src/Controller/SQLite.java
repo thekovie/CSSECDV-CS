@@ -555,7 +555,66 @@ public void addProduct(String name, int stock, double price, String performedBy)
 
         return histories;
     }
- 
+    
+    public ArrayList<History> searchHistory(String query) {
+        String sql = "SELECT id, username, name, stock, timestamp FROM history WHERE username LIKE ? OR name LIKE ?";
+
+        ArrayList<History> histories = new ArrayList<>();
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            String pattern = "%" + query + "%";
+            pstmt.setString(1, pattern);
+            pstmt.setString(2, pattern);
+
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                histories.add(new History(
+                    rs.getInt("id"),
+                    rs.getString("username"),
+                    rs.getString("name"),
+                    rs.getInt("stock"),
+                    rs.getString("timestamp")
+                ));
+            }
+        } catch (Exception ex) {
+            System.out.println("Error searching history: " + ex.getMessage());
+        }
+
+        return histories;
+    }
+    
+    public ArrayList<History> searchHistoryForUser(String username, String query) {
+        String sql = "SELECT id, username, name, stock, timestamp FROM history WHERE username = ? AND name LIKE ?";
+
+        ArrayList<History> histories = new ArrayList<>();
+
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username);
+            pstmt.setString(2, "%" + query + "%");
+
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                histories.add(new History(
+                    rs.getInt("id"),
+                    rs.getString("username"),
+                    rs.getString("name"),
+                    rs.getInt("stock"),
+                    rs.getString("timestamp")
+                ));
+            }
+        } catch (Exception ex) {
+            System.out.println("Error searching user history: " + ex.getMessage());
+        }
+
+        return histories;
+    }
+
+    
+    
     public ArrayList<Logs> getLogs(){
         String sql = "SELECT id, event, username, desc, timestamp FROM logs";
         ArrayList<Logs> logs = new ArrayList<Logs>();
