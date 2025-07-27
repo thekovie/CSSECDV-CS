@@ -9,6 +9,7 @@ import Controller.SQLite;
 import Controller.SessionManager;
 import Model.User;
 import Model.Validator;
+import java.awt.Component;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -66,6 +67,54 @@ public class MgmtUser extends javax.swing.JPanel {
         component.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         component.setBorder(javax.swing.BorderFactory.createTitledBorder(new javax.swing.border.LineBorder(new java.awt.Color(0, 0, 0), 2, true), text, javax.swing.border.TitledBorder.CENTER, javax.swing.border.TitledBorder.DEFAULT_POSITION, new java.awt.Font("Tahoma", 0, 12)));
     }
+    
+    public boolean reauthenticateCurrentUser(Component parentComponent) {
+        JPasswordField passwordField = new JPasswordField();
+        passwordField.setEchoChar('*');
+
+        Object[] message = {
+            "Enter your password to confirm:",
+            passwordField
+        };
+
+        int result = JOptionPane.showConfirmDialog(
+            parentComponent,
+            message,
+            "Reauthentication Required",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result != JOptionPane.OK_OPTION) {
+            return false;
+        }
+
+        String enteredPassword = new String(passwordField.getPassword());
+
+        try {
+            User currentUser = sqlite.getUser(SessionManager.getUsername());
+            if (currentUser == null || currentUser.getLocked() == 1 || !currentUser.checkPassword(enteredPassword)) {
+                JOptionPane.showMessageDialog(
+                    parentComponent,
+                    "Authentication failed. Operation aborted.",
+                    "Invalid Password",
+                    JOptionPane.ERROR_MESSAGE
+                );
+                return false;
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(
+                parentComponent,
+                "Authentication error: " + ex.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE
+            );
+            return false;
+        }
+
+        return true;
+    }
+
     
     /**
      * This method is called from within the constructor to initialize the form.
@@ -189,16 +238,25 @@ public class MgmtUser extends javax.swing.JPanel {
         String username = (String) tableModel.getValueAt(selectedRow, 0);
         int currentRole = (int) tableModel.getValueAt(selectedRow, 2);
 
-        String[] options = {"1-DISABLED","2-CLIENT","3-STAFF","4-MANAGER","5-ADMIN"};
+        String[] options = {
+            "1-DISABLED",
+            "2-CLIENT",
+            "3-STAFF",
+            "4-MANAGER",
+            "5-ADMIN"
+        };
+
         JComboBox<String> optionList = new JComboBox<>(options);
         optionList.setSelectedIndex(currentRole - 1); // roles are 1-based
 
-        int result = JOptionPane.showConfirmDialog(null, optionList,
-                "EDIT USER ROLE: " + username, JOptionPane.OK_CANCEL_OPTION);
+        int result = JOptionPane.showConfirmDialog(
+            null,
+            optionList,
+            "EDIT USER ROLE: " + username,
+            JOptionPane.OK_CANCEL_OPTION
+        );
 
         if (result == JOptionPane.OK_OPTION) {
-            
-            // validate the user 
             if (SessionManager.getSessionRole() < SessionManager.ROLE_ADMINISTRATOR) {
                 JOptionPane.showMessageDialog(
                     this,
@@ -208,17 +266,21 @@ public class MgmtUser extends javax.swing.JPanel {
                 );
                 return;
             }
-            
-            
+
             try {
                 int newRole = optionList.getSelectedIndex() + 1;
-                Validator.validateRoleChange(username, currentRole, newRole);
 
+                // Require reauthentication if promoting to ADMIN
+                if (newRole == SessionManager.ROLE_ADMINISTRATOR && currentRole != SessionManager.ROLE_ADMINISTRATOR) {
+                    boolean confirmed = reauthenticateCurrentUser(this);
+                    if (!confirmed) return;
+                }
+
+                Validator.validateRoleChange(username, currentRole, newRole);
                 sqlite.updateUserRole(username, newRole, SessionManager.getUsername());
 
                 JOptionPane.showMessageDialog(null, "Role updated successfully.");
                 init(); // reload table
-
             } catch (IllegalArgumentException ex) {
                 JOptionPane.showMessageDialog(null, ex.getMessage(), "Invalid Role Change", JOptionPane.ERROR_MESSAGE);
             }
@@ -268,17 +330,72 @@ public class MgmtUser extends javax.swing.JPanel {
     }//GEN-LAST:event_deleteBtnActionPerformed
 
     private void lockBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_lockBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
-            String state = "lock";
-            if("1".equals(tableModel.getValueAt(table.getSelectedRow(), 3) + "")){
-                state = "unlock";
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow < 0) return;
+
+        String targetUsername = (String) tableModel.getValueAt(selectedRow, 0);
+        int targetLocked = Integer.parseInt(tableModel.getValueAt(selectedRow, 3).toString());
+        int targetRole = Integer.parseInt(tableModel.getValueAt(selectedRow, 2).toString());
+
+        boolean locking = (targetLocked == 0);
+        String action = locking ? "lock" : "unlock";
+
+        // Prevent self-lock
+        if (targetUsername.equals(SessionManager.getUsername())) {
+            JOptionPane.showMessageDialog(
+                null,
+                "You cannot " + action + " your own account.",
+                "Invalid Operation",
+                JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        // Enforce re-authentication if locking an admin
+        if (locking && targetRole == SessionManager.ROLE_ADMINISTRATOR) {
+            boolean confirmed = reauthenticateCurrentUser(this);
+                if (!confirmed) return;
+        }
+
+        // If locking, prompt for reason if target is admin
+        String reason = "User '" + targetUsername + "' account was " + action + "ed.";
+        if (locking && targetRole == SessionManager.ROLE_ADMINISTRATOR) {
+            JTextField reasonField = new JTextField();
+            Validator.prepareTextField(reasonField, "REASON FOR LOCKING ADMIN");
+
+            int input = JOptionPane.showConfirmDialog(
+                null, reasonField,
+                "Enter Reason (Required)", JOptionPane.OK_CANCEL_OPTION
+            );
+
+            if (input != JOptionPane.OK_OPTION || Validator.sanitizeString(reasonField.getText()).isEmpty()) {
+                JOptionPane.showMessageDialog(
+                    null,
+                    "A valid reason is required to lock an admin.",
+                    "Action Denied",
+                    JOptionPane.ERROR_MESSAGE
+                );
+                return;
             }
-            
-            int result = JOptionPane.showConfirmDialog(null, "Are you sure you want to " + state + " " + tableModel.getValueAt(table.getSelectedRow(), 0) + "?", "DELETE USER", JOptionPane.YES_NO_OPTION);
-            
-            if (result == JOptionPane.YES_OPTION) {
-                System.out.println(tableModel.getValueAt(table.getSelectedRow(), 0));
+
+            reason = Validator.sanitizeString(reasonField.getText());
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(
+            null,
+            "Are you sure you want to " + action + " user '" + targetUsername + "'?",
+            "Confirm Action",
+            JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (locking) {
+                sqlite.lockUserWithReason(targetUsername, SessionManager.getUsername(), reason);
+            } else {
+                sqlite.unlockUser(targetUsername, SessionManager.getUsername());
             }
+            JOptionPane.showMessageDialog(null, "User " + action + "ed successfully.");
+            init();
         }
     }//GEN-LAST:event_lockBtnActionPerformed
 

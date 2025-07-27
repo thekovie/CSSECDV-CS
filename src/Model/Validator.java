@@ -5,6 +5,7 @@ import Controller.SessionManager;
 import com.nulabinc.zxcvbn.Strength;
 import com.nulabinc.zxcvbn.Zxcvbn;
 import java.math.BigDecimal;
+import javax.swing.JTextField;
 
 public class Validator {
     
@@ -146,8 +147,14 @@ public class Validator {
 
         return !(targetUser.getRole() == 0 && currentUserRole != SessionManager.ROLE_ADMINISTRATOR);
     }
+    
+    public static void prepareTextField(JTextField field, String label) {
+        if (field == null) return;
 
-
+        field.setText("");
+        field.setToolTipText(label);
+        field.setBorder(javax.swing.BorderFactory.createTitledBorder(label));
+    }
     
     
 }

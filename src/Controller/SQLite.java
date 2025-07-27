@@ -604,27 +604,27 @@ public class SQLite {
                 }
 
                 String roleLabel;
-                
                 switch (newRole) {
-                    case 0:
+                    case SessionManager.ROLE_ADMINISTRATOR:
                         roleLabel = "ADMIN";
                         break;
-                    case 1:
+                    case SessionManager.ROLE_DISABLED:
                         roleLabel = "DISABLED";
                         break;
-                    case 2:
+                    case SessionManager.ROLE_CLIENT:
                         roleLabel = "CLIENT";
                         break;
-                    case 3:
+                    case SessionManager.ROLE_STAFF:
                         roleLabel = "STAFF";
                         break;
-                    case 4:
+                    case SessionManager.ROLE_MANAGER:
                         roleLabel = "MANAGER";
                         break;
                     default:
                         roleLabel = "UNKNOWN(" + newRole + ")";
                         break;
                 }
+
 
 
                 logStmt.setString(1, "NOTICE");
@@ -773,6 +773,80 @@ public class SQLite {
         }
     }
 
+    public void lockUserWithReason(String username, String performedBy, String reason) {
+        String sqlLock = "UPDATE users SET locked = 1 WHERE username = ?";
+        String sqlLog = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false);
+
+            try (
+                PreparedStatement lockStmt = conn.prepareStatement(sqlLock);
+                PreparedStatement logStmt = conn.prepareStatement(sqlLog)
+            ) {
+                lockStmt.setString(1, username);
+                if (lockStmt.executeUpdate() == 0) {
+                    throw new SQLException("User not found or already locked.");
+                }
+
+                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                logStmt.setString(1, "ALERT");
+                logStmt.setString(2, performedBy);
+                logStmt.setString(3, "User " + username + " was locked by " + performedBy + ". REASON: " + reason);
+                logStmt.setString(4, timestamp);
+                logStmt.executeUpdate();
+
+                conn.commit();
+            } catch (Exception ex) {
+                conn.rollback();
+                throw new RuntimeException("Lock operation failed: " + ex.getMessage());
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Transaction failed: " + e.getMessage());
+        }
+    }
+
+    public void unlockUser(String username, String performedBy) {
+        String sqlUnlock = "UPDATE users SET locked = 0 WHERE username = ?";
+        String sqlLog = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false); // Begin transaction
+
+            try (
+                PreparedStatement unlockStmt = conn.prepareStatement(sqlUnlock);
+                PreparedStatement logStmt = conn.prepareStatement(sqlLog)
+            ) {
+                // Unlock the user
+                unlockStmt.setString(1, username);
+                int rowsAffected = unlockStmt.executeUpdate();
+
+                if (rowsAffected == 0) {
+                    throw new SQLException("User not found or already unlocked.");
+                }
+
+                // Insert log
+                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                logStmt.setString(1, "NOTICE");
+                logStmt.setString(2, performedBy);
+                logStmt.setString(3, "User '" + username + "' account was unlocked.");
+                logStmt.setString(4, timestamp);
+                logStmt.executeUpdate();
+
+                // Commit both operations
+                conn.commit();
+
+            } catch (Exception innerEx) {
+                conn.rollback(); // Rollback on error
+                System.out.println("Transaction rolled back: " + innerEx.getMessage());
+            }
+
+        } catch (SQLException e) {
+            System.out.println("Error unlocking user: " + e.getMessage());
+        }
+    }
+
+    
     
     // session table methods
     public void createSessionsTable() {
