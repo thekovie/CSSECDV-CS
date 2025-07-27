@@ -62,6 +62,19 @@ public class Main {
         sqlite.addLogs("NOTICE", "admin", "User creation successful", new Timestamp(new Date().getTime()).toString());
         sqlite.addLogs("NOTICE", "manager", "User creation successful", new Timestamp(new Date().getTime()).toString());
         sqlite.addLogs("NOTICE", "admin", "User creation successful", new Timestamp(new Date().getTime()).toString());
+        sqlite.addLogs("NOTICE", "admin", "System settings viewed", new Timestamp(new Date().getTime()).toString());
+        sqlite.addLogs("NOTICE", "staff", "Order record exported", new Timestamp(new Date().getTime()).toString());
+        sqlite.addLogs("NOTICE", "client", "User logged in", new Timestamp(new Date().getTime()).toString());
+
+        sqlite.addLogs("WARNING", "admin", "Attempted invalid access to restricted panel", new Timestamp(new Date().getTime()).toString());
+        sqlite.addLogs("WARNING", "staff", "Low stock alert triggered", new Timestamp(new Date().getTime()).toString());
+
+        sqlite.addLogs("ALERT", "manager", "Brute-force login attempt detected", new Timestamp(new Date().getTime()).toString());
+        sqlite.addLogs("ALERT", "admin", "Multiple failed login attempts", new Timestamp(new Date().getTime()).toString());
+
+        sqlite.addLogs("CRITICAL", "admin", "Something", new Timestamp(new Date().getTime()).toString());
+        sqlite.addLogs("CRITICAL", "manager", "Failed backup process", new Timestamp(new Date().getTime()).toString());
+
         
         // Add sample product
         sqlite.addProduct("Antivirus", 5, 500.0, "admin");

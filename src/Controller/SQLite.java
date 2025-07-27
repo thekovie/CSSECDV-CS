@@ -669,7 +669,7 @@ public class SQLite {
 
 
 
-                logStmt.setString(1, "NOTICE");
+                logStmt.setString(1, "ALERT");
                 logStmt.setString(2, performedBy);
                 logStmt.setString(3, "Updated role of '" + username + "' to " + roleLabel + ".");
                 logStmt.setString(4, timestamp);
@@ -710,7 +710,7 @@ public class SQLite {
 
                 // Insert log
                 String timestamp = new Timestamp(System.currentTimeMillis()).toString();
-                logStmt.setString(1, "WARNING");
+                logStmt.setString(1, "CRITICAL");
                 logStmt.setString(2, performedBy);
                 logStmt.setString(3, "Deleted user: " + targetUsername);
                 logStmt.setString(4, timestamp);
@@ -832,7 +832,7 @@ public class SQLite {
                 }
 
                 String timestamp = new Timestamp(System.currentTimeMillis()).toString();
-                logStmt.setString(1, "ALERT");
+                logStmt.setString(1, "CRITICAL");
                 logStmt.setString(2, performedBy);
                 logStmt.setString(3, "User " + username + " was locked by " + performedBy + ". REASON: " + reason);
                 logStmt.setString(4, timestamp);
@@ -869,7 +869,7 @@ public class SQLite {
 
                 // Insert log
                 String timestamp = new Timestamp(System.currentTimeMillis()).toString();
-                logStmt.setString(1, "NOTICE");
+                logStmt.setString(1, "CRITICAL");
                 logStmt.setString(2, performedBy);
                 logStmt.setString(3, "User '" + username + "' account was unlocked.");
                 logStmt.setString(4, timestamp);
@@ -1016,6 +1016,19 @@ public class SQLite {
         return sessions;
     }
 
+    public void clearLogByDetails(String event, String username, String timestamp) {
+        String sql = "DELETE FROM logs WHERE event = ? AND username = ? AND timestamp = ?";
+        try (Connection conn = DriverManager.getConnection(driverURL);
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, event);
+            stmt.setString(2, username);
+            stmt.setString(3, timestamp);
+            stmt.executeUpdate();
+        } catch (SQLException ex) {
+            System.out.println("Error deleting log: " + ex.getMessage());
+        }
+    }
 
 
 
