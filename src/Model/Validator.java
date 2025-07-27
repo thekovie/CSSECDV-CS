@@ -1,8 +1,11 @@
 package Model;
 
+import Controller.SQLite;
+import Controller.SessionManager;
 import com.nulabinc.zxcvbn.Strength;
 import com.nulabinc.zxcvbn.Zxcvbn;
 import java.math.BigDecimal;
+import javax.swing.JTextField;
 
 public class Validator {
     
@@ -111,6 +114,48 @@ public class Validator {
             throw new IllegalArgumentException("Product price must be a valid number.");
         }
     }
+    
+    
+    public static void validateRoleChange(String targetUsername, int currentRole, int newRole) {
+        // Cannot change role of an admin
+        if (currentRole == 5) {
+            throw new IllegalArgumentException("You cannot modify the role of another admin.");
+        }
+
+        if (newRole < 1 || newRole > 5) {
+            throw new IllegalArgumentException("Invalid role selected.");
+        }
+
+        if (currentRole == newRole) {
+            throw new IllegalArgumentException("The user already has this role.");
+        }
+
+    }
+    
+    
+    public static boolean canDeleteUser(String targetUsername, String currentUsername, int currentUserRole, SQLite sqlite) {
+        if (targetUsername.equals(currentUsername)) {
+            return false; // cannot delete self
+        }
+
+        User targetUser = sqlite.getUser(targetUsername);
+        if (targetUser == null) return false;
+        
+        if (targetUser.getRole() == SessionManager.ROLE_ADMINISTRATOR) {
+            return false; // no one can delete an admin, not even another admin
+        }
+
+        return !(targetUser.getRole() == 0 && currentUserRole != SessionManager.ROLE_ADMINISTRATOR);
+    }
+    
+    public static void prepareTextField(JTextField field, String label) {
+        if (field == null) return;
+
+        field.setText("");
+        field.setToolTipText(label);
+        field.setBorder(javax.swing.BorderFactory.createTitledBorder(label));
+    }
+    
     
     public static void validateSearchQuery(String input) {
     if (input == null || input.trim().isEmpty()) {

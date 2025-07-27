@@ -6,8 +6,16 @@
 package View;
 
 import Controller.SQLite;
+import Controller.SessionManager;
 import Model.Logs;
+import Model.User;
+import java.awt.Component;
+import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Date;
+import javax.swing.JOptionPane;
+import javax.swing.JPasswordField;
+import javax.swing.JTextField;
 import javax.swing.table.DefaultTableModel;
 
 /**
@@ -28,6 +36,62 @@ public class MgmtLogs extends javax.swing.JPanel {
 //        UNCOMMENT TO DISABLE BUTTONS
 //        clearBtn.setVisible(false);
 //        debugBtn.setVisible(false);
+    }
+    
+        public boolean reauthenticateCurrentUser(Component parentComponent) {
+        JPasswordField passwordField = new JPasswordField();
+        designer(passwordField, "PASSWORD");
+        passwordField.setEchoChar('*');
+
+        Object[] message = {
+            "Enter your password to confirm:",
+            passwordField
+        };
+
+        int result = JOptionPane.showConfirmDialog(
+            parentComponent,
+            message,
+            "Reauthentication Required",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result != JOptionPane.OK_OPTION) {
+            return false;
+        }
+
+        String enteredPassword = new String(passwordField.getPassword());
+
+        try {
+            User currentUser = sqlite.getUser(SessionManager.getUsername());
+            if (currentUser == null || currentUser.getLocked() == 1 || !currentUser.checkPassword(enteredPassword)) {
+                JOptionPane.showMessageDialog(
+                    parentComponent,
+                    "Authentication failed. Operation aborted.",
+                    "Invalid Password",
+                    JOptionPane.ERROR_MESSAGE
+                );
+                return false;
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(
+                parentComponent,
+                "Authentication error: " + ex.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE
+            );
+            return false;
+        }
+
+        return true;
+    }
+    
+    public void designer(JTextField component, String text){
+        component.setSize(70, 600);
+        component.setFont(new java.awt.Font("Tahoma", 0, 18));
+        component.setBackground(new java.awt.Color(240, 240, 240));
+        component.setHorizontalAlignment(javax.swing.JTextField.CENTER);
+        component.setBorder(javax.swing.BorderFactory.createTitledBorder(new javax.swing.border.LineBorder(new java.awt.Color(0, 0, 0), 2, true), text, javax.swing.border.TitledBorder.CENTER, javax.swing.border.TitledBorder.DEFAULT_POSITION, new java.awt.Font("Tahoma", 0, 12)));
     }
 
     public void init(){
@@ -135,14 +199,102 @@ public class MgmtLogs extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
 
     private void clearBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_clearBtnActionPerformed
-        
+    int selectedRow = table.getSelectedRow();
+    if (selectedRow < 0) return;
+
+    // Only admins can clear logs
+    if (SessionManager.getSessionRole() < SessionManager.ROLE_ADMINISTRATOR) {
+        JOptionPane.showMessageDialog(
+            this,
+            "You are not allowed to access this feature.",
+            "Access Denied",
+            JOptionPane.WARNING_MESSAGE
+        );
+        return;
+    }
+
+    String eventType = table.getValueAt(selectedRow, 0).toString();
+    String username = table.getValueAt(selectedRow, 1).toString();
+    String timestamp = table.getValueAt(selectedRow, 3).toString();
+
+    boolean reauthRequired = eventType.equalsIgnoreCase("ALERT") ||
+                              eventType.equalsIgnoreCase("WARNING");
+    
+    if (eventType.equalsIgnoreCase("CRITICAL")) {
+        JOptionPane.showMessageDialog(
+                this, 
+                "You are not allowed to clear this log.",
+                "Access Denied",
+                JOptionPane.ERROR_MESSAGE
+        );
+        sqlite.addLogs("CRITICAL", SessionManager.getUsername(), "Attempted to CLEAR critical log.", new Timestamp(new Date().getTime()).toString());
+        init();
+        return;
+    }
+
+    if (reauthRequired) {
+        boolean confirmed = reauthenticateCurrentUser(this);
+        if (!confirmed) return;
+    }
+
+    int confirm = JOptionPane.showConfirmDialog(
+        this,
+        "Are you sure you want to clear this log?\n\nType: " + eventType + "\nUser: " + username + "\nTimestamp: " + timestamp,
+        "Confirm Log Deletion",
+        JOptionPane.YES_NO_OPTION
+    );
+
+    if (confirm == JOptionPane.YES_OPTION) {
+        sqlite.clearLogByDetails(eventType, username, timestamp);
+        JOptionPane.showMessageDialog(this, "Log cleared successfully.");
+        init(); // refresh table
+    }    
     }//GEN-LAST:event_clearBtnActionPerformed
 
     private void debugBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_debugBtnActionPerformed
-        if(sqlite.DEBUG_MODE == 1)
+        // Only admins can toggle debug mode
+        if (SessionManager.getSessionRole() < SessionManager.ROLE_ADMINISTRATOR) {
+            JOptionPane.showMessageDialog(
+                this,
+                "You are not allowed to access this feature.",
+                "Access Denied",
+                JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        boolean confirmed = reauthenticateCurrentUser(this);
+        if (!confirmed) return;
+
+        String action = sqlite.DEBUG_MODE == 1 ? "DISABLE" : "ENABLE";
+        int choice = JOptionPane.showConfirmDialog(
+            this,
+            "You are about to " + action + " DEBUG MODE.\n\n"
+            + "This action allows printing internal SQL and database activity to console.\n\n"
+            + "Performed by: " + SessionManager.getUsername() + "\n\n"
+            + "Proceed with " + action + "?",
+            "Toggle Debug Mode",
+            JOptionPane.YES_NO_OPTION
+        );
+
+        if (choice != JOptionPane.YES_OPTION) return;
+
+        if (sqlite.DEBUG_MODE == 1) {
             sqlite.DEBUG_MODE = 0;
-        else
+            JOptionPane.showMessageDialog(this, "Debug mode DISABLED.");
+        } else {
             sqlite.DEBUG_MODE = 1;
+            JOptionPane.showMessageDialog(this, "Debug mode ENABLED.");
+
+            // Create critical log
+            String timestamp = new Timestamp(new Date().getTime()).toString();
+            sqlite.addLogs(
+                "CRITICAL",
+                SessionManager.getUsername(),
+                "DEBUG MODE was ENABLED by administrator.",
+                timestamp
+            );
+        }
     }//GEN-LAST:event_debugBtnActionPerformed
 
 

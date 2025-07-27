@@ -26,6 +26,7 @@ public class MgmtHistory extends javax.swing.JPanel {
     
     public MgmtHistory(SQLite sqlite) {
         initComponents();
+        this.tableModel = (DefaultTableModel) table.getModel();
         this.sqlite = sqlite;
         table.getTableHeader().setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 14));
         javax.swing.table.DefaultTableCellRenderer rightAlign = new javax.swing.table.DefaultTableCellRenderer();

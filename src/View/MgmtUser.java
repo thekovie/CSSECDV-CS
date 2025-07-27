@@ -6,7 +6,12 @@
 package View;
 
 import Controller.SQLite;
+import Controller.SessionManager;
 import Model.User;
+import Model.Validator;
+import java.awt.Component;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
@@ -62,6 +67,55 @@ public class MgmtUser extends javax.swing.JPanel {
         component.setHorizontalAlignment(javax.swing.JTextField.CENTER);
         component.setBorder(javax.swing.BorderFactory.createTitledBorder(new javax.swing.border.LineBorder(new java.awt.Color(0, 0, 0), 2, true), text, javax.swing.border.TitledBorder.CENTER, javax.swing.border.TitledBorder.DEFAULT_POSITION, new java.awt.Font("Tahoma", 0, 12)));
     }
+    
+    public boolean reauthenticateCurrentUser(Component parentComponent) {
+        JPasswordField passwordField = new JPasswordField();
+        designer(passwordField, "PASSWORD");
+        passwordField.setEchoChar('*');
+
+        Object[] message = {
+            "Enter your password to confirm:",
+            passwordField
+        };
+
+        int result = JOptionPane.showConfirmDialog(
+            parentComponent,
+            message,
+            "Reauthentication Required",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result != JOptionPane.OK_OPTION) {
+            return false;
+        }
+
+        String enteredPassword = new String(passwordField.getPassword());
+
+        try {
+            User currentUser = sqlite.getUser(SessionManager.getUsername());
+            if (currentUser == null || currentUser.getLocked() == 1 || !currentUser.checkPassword(enteredPassword)) {
+                JOptionPane.showMessageDialog(
+                    parentComponent,
+                    "Authentication failed. Operation aborted.",
+                    "Invalid Password",
+                    JOptionPane.ERROR_MESSAGE
+                );
+                return false;
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(
+                parentComponent,
+                "Authentication error: " + ex.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE
+            );
+            return false;
+        }
+
+        return true;
+    }
+
     
     /**
      * This method is called from within the constructor to initialize the form.
@@ -179,63 +233,234 @@ public class MgmtUser extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
 
     private void editRoleBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_editRoleBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
-            String[] options = {"1-DISABLED","2-CLIENT","3-STAFF","4-MANAGER","5-ADMIN"};
-            JComboBox optionList = new JComboBox(options);
-            
-            optionList.setSelectedIndex((int)tableModel.getValueAt(table.getSelectedRow(), 2) - 1);
-            
-            String result = (String) JOptionPane.showInputDialog(null, "USER: " + tableModel.getValueAt(table.getSelectedRow(), 0), 
-                "EDIT USER ROLE", JOptionPane.QUESTION_MESSAGE, null, options, options[(int)tableModel.getValueAt(table.getSelectedRow(), 2) - 1]);
-            
-            if(result != null){
-                System.out.println(tableModel.getValueAt(table.getSelectedRow(), 0));
-                System.out.println(result.charAt(0));
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow < 0) return;
+
+        String username = (String) tableModel.getValueAt(selectedRow, 0);
+        int currentRole = (int) tableModel.getValueAt(selectedRow, 2);
+
+        String[] options = {
+            "1-DISABLED",
+            "2-CLIENT",
+            "3-STAFF",
+            "4-MANAGER",
+            "5-ADMIN"
+        };
+
+        JComboBox<String> optionList = new JComboBox<>(options);
+        optionList.setSelectedIndex(currentRole - 1); // roles are 1-based
+
+        int result = JOptionPane.showConfirmDialog(
+            null,
+            optionList,
+            "EDIT USER ROLE: " + username,
+            JOptionPane.OK_CANCEL_OPTION
+        );
+
+        if (result == JOptionPane.OK_OPTION) {
+            if (SessionManager.getSessionRole() < SessionManager.ROLE_ADMINISTRATOR) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "You are not allowed to access this feature.",
+                    "Access Denied",
+                    JOptionPane.WARNING_MESSAGE
+                );
+                return;
+            }
+
+            try {
+                int newRole = optionList.getSelectedIndex() + 1;
+
+                // Require reauthentication if promoting to ADMIN
+                if (newRole == SessionManager.ROLE_ADMINISTRATOR && currentRole != SessionManager.ROLE_ADMINISTRATOR) {
+                    boolean confirmed = reauthenticateCurrentUser(this);
+                    if (!confirmed) return;
+                }
+
+                Validator.validateRoleChange(username, currentRole, newRole);
+                sqlite.updateUserRole(username, newRole, SessionManager.getUsername());
+
+                JOptionPane.showMessageDialog(null, "Role updated successfully.");
+                init(); // reload table
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(null, ex.getMessage(), "Invalid Role Change", JOptionPane.ERROR_MESSAGE);
             }
         }
     }//GEN-LAST:event_editRoleBtnActionPerformed
 
     private void deleteBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_deleteBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
-            int result = JOptionPane.showConfirmDialog(null, "Are you sure you want to delete " + tableModel.getValueAt(table.getSelectedRow(), 0) + "?", "DELETE USER", JOptionPane.YES_NO_OPTION);
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow >= 0) {
+            String usernameToDelete = tableModel.getValueAt(selectedRow, 0).toString();
+            String currentUsername = SessionManager.getUsername();
+            int currentUserRole = SessionManager.getSessionRole();
             
-            if (result == JOptionPane.YES_OPTION) {
-                System.out.println(tableModel.getValueAt(table.getSelectedRow(), 0));
+            
+            if (SessionManager.getSessionRole() < SessionManager.ROLE_ADMINISTRATOR) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "You are not allowed to access this feature.",
+                    "Access Denied",
+                    JOptionPane.WARNING_MESSAGE
+                );
+                return;
             }
+
+            if (!Validator.canDeleteUser(usernameToDelete, currentUsername, currentUserRole, sqlite)) {
+                JOptionPane.showMessageDialog(null, "You are not allowed to delete this user.", "ACCESS DENIED", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            int result = JOptionPane.showConfirmDialog(
+                null,
+                "Are you sure you want to delete " + usernameToDelete + "?",
+                "DELETE USER",
+                JOptionPane.YES_NO_OPTION
+            );
+
+            if (result == JOptionPane.YES_OPTION) {
+                sqlite.removeUser(usernameToDelete, SessionManager.getUsername());
+                
+                init();
+
+                JOptionPane.showMessageDialog(null, "User successfully deleted.");
+            }
+        } else {
+            JOptionPane.showMessageDialog(null, "Please select a user to delete.");
         }
     }//GEN-LAST:event_deleteBtnActionPerformed
 
     private void lockBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_lockBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
-            String state = "lock";
-            if("1".equals(tableModel.getValueAt(table.getSelectedRow(), 3) + "")){
-                state = "unlock";
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow < 0) return;
+
+        String targetUsername = (String) tableModel.getValueAt(selectedRow, 0);
+        int targetLocked = Integer.parseInt(tableModel.getValueAt(selectedRow, 3).toString());
+        int targetRole = Integer.parseInt(tableModel.getValueAt(selectedRow, 2).toString());
+
+        boolean locking = (targetLocked == 0);
+        String action = locking ? "lock" : "unlock";
+
+        // Prevent self-lock
+        if (targetUsername.equals(SessionManager.getUsername())) {
+            JOptionPane.showMessageDialog(
+                null,
+                "You cannot " + action + " your own account.",
+                "Invalid Operation",
+                JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        // Enforce re-authentication if locking an admin
+        if (locking && targetRole == SessionManager.ROLE_ADMINISTRATOR) {
+            boolean confirmed = reauthenticateCurrentUser(this);
+                if (!confirmed) return;
+        }
+
+        // If locking, prompt for reason if target is admin
+        String reason = "User '" + targetUsername + "' account was " + action + "ed.";
+        if (locking && targetRole == SessionManager.ROLE_ADMINISTRATOR) {
+            JTextField reasonField = new JTextField();
+            Validator.prepareTextField(reasonField, "REASON FOR LOCKING ADMIN");
+
+            int input = JOptionPane.showConfirmDialog(
+                null, reasonField,
+                "Enter Reason (Required)", JOptionPane.OK_CANCEL_OPTION
+            );
+
+            if (input != JOptionPane.OK_OPTION || Validator.sanitizeString(reasonField.getText()).isEmpty()) {
+                JOptionPane.showMessageDialog(
+                    null,
+                    "A valid reason is required to lock an admin.",
+                    "Action Denied",
+                    JOptionPane.ERROR_MESSAGE
+                );
+                return;
             }
-            
-            int result = JOptionPane.showConfirmDialog(null, "Are you sure you want to " + state + " " + tableModel.getValueAt(table.getSelectedRow(), 0) + "?", "DELETE USER", JOptionPane.YES_NO_OPTION);
-            
-            if (result == JOptionPane.YES_OPTION) {
-                System.out.println(tableModel.getValueAt(table.getSelectedRow(), 0));
+
+            reason = Validator.sanitizeString(reasonField.getText());
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(
+            null,
+            "Are you sure you want to " + action + " user '" + targetUsername + "'?",
+            "Confirm Action",
+            JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (locking) {
+                sqlite.lockUserWithReason(targetUsername, SessionManager.getUsername(), reason);
+            } else {
+                sqlite.unlockUser(targetUsername, SessionManager.getUsername());
             }
+            JOptionPane.showMessageDialog(null, "User " + action + "ed successfully.");
+            init();
         }
     }//GEN-LAST:event_lockBtnActionPerformed
 
     private void chgpassBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chgpassBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
-            JTextField password = new JPasswordField();
-            JTextField confpass = new JPasswordField();
-            designer(password, "PASSWORD");
-            designer(confpass, "CONFIRM PASSWORD");
-            
-            Object[] message = {
-                "Enter New Password:", password, confpass
-            };
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow < 0) return;
 
-            int result = JOptionPane.showConfirmDialog(null, message, "CHANGE PASSWORD", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null);
-            
-            if (result == JOptionPane.OK_OPTION) {
-                System.out.println(password.getText());
-                System.out.println(confpass.getText());
+        String targetUsername = (String) tableModel.getValueAt(selectedRow, 0);
+        int targetRole = (int) tableModel.getValueAt(selectedRow, 2);
+        String currentUsername = SessionManager.getUsername();
+        int currentRole = SessionManager.getSessionRole();
+
+        // Prevent changing password of another admin
+        if (targetRole == SessionManager.ROLE_ADMINISTRATOR && !targetUsername.equals(currentUsername)) {
+            JOptionPane.showMessageDialog(
+                this,
+                "You cannot change the password of another admin.",
+                "Access Denied",
+                JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        // Build form with JPasswordFields
+        JPasswordField passwordField = new JPasswordField();
+        JPasswordField confirmPasswordField = new JPasswordField();
+        Validator.prepareTextField(passwordField, "NEW PASSWORD");
+        Validator.prepareTextField(confirmPasswordField, "CONFIRM PASSWORD");
+        designer(passwordField, "NEW PASSWORD");
+        designer(confirmPasswordField, "NEW PASSWORD");
+
+        Object[] message = {
+            "Enter New Password:", passwordField,
+            "Confirm New Password:", confirmPasswordField
+        };
+
+        int result = JOptionPane.showConfirmDialog(
+            null,
+            message,
+            "CHANGE PASSWORD FOR: " + targetUsername,
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result == JOptionPane.OK_OPTION) {
+            String password = new String(passwordField.getPassword());
+            String confirmPassword = new String(confirmPasswordField.getPassword());
+
+            try {
+                String validationResult = Validator.validateRegistration(
+                    targetUsername,
+                    password,
+                    confirmPassword,
+                    false // no need to check username existence here
+                );
+
+                if (validationResult != null) {
+                    throw new IllegalArgumentException(validationResult);
+                }
+
+                sqlite.updatePassword(targetUsername, password);
+                JOptionPane.showMessageDialog(this, "Password successfully changed for user: " + targetUsername);
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Invalid Password", JOptionPane.ERROR_MESSAGE);
             }
         }
     }//GEN-LAST:event_chgpassBtnActionPerformed
