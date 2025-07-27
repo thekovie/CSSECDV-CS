@@ -70,6 +70,7 @@ public class MgmtUser extends javax.swing.JPanel {
     
     public boolean reauthenticateCurrentUser(Component parentComponent) {
         JPasswordField passwordField = new JPasswordField();
+        designer(passwordField, "PASSWORD");
         passwordField.setEchoChar('*');
 
         Object[] message = {
@@ -400,21 +401,66 @@ public class MgmtUser extends javax.swing.JPanel {
     }//GEN-LAST:event_lockBtnActionPerformed
 
     private void chgpassBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_chgpassBtnActionPerformed
-        if(table.getSelectedRow() >= 0){
-            JTextField password = new JPasswordField();
-            JTextField confpass = new JPasswordField();
-            designer(password, "PASSWORD");
-            designer(confpass, "CONFIRM PASSWORD");
-            
-            Object[] message = {
-                "Enter New Password:", password, confpass
-            };
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow < 0) return;
 
-            int result = JOptionPane.showConfirmDialog(null, message, "CHANGE PASSWORD", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null);
-            
-            if (result == JOptionPane.OK_OPTION) {
-                System.out.println(password.getText());
-                System.out.println(confpass.getText());
+        String targetUsername = (String) tableModel.getValueAt(selectedRow, 0);
+        int targetRole = (int) tableModel.getValueAt(selectedRow, 2);
+        String currentUsername = SessionManager.getUsername();
+        int currentRole = SessionManager.getSessionRole();
+
+        // Prevent changing password of another admin
+        if (targetRole == SessionManager.ROLE_ADMINISTRATOR && !targetUsername.equals(currentUsername)) {
+            JOptionPane.showMessageDialog(
+                this,
+                "You cannot change the password of another admin.",
+                "Access Denied",
+                JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        // Build form with JPasswordFields
+        JPasswordField passwordField = new JPasswordField();
+        JPasswordField confirmPasswordField = new JPasswordField();
+        Validator.prepareTextField(passwordField, "NEW PASSWORD");
+        Validator.prepareTextField(confirmPasswordField, "CONFIRM PASSWORD");
+        designer(passwordField, "NEW PASSWORD");
+        designer(confirmPasswordField, "NEW PASSWORD");
+
+        Object[] message = {
+            "Enter New Password:", passwordField,
+            "Confirm New Password:", confirmPasswordField
+        };
+
+        int result = JOptionPane.showConfirmDialog(
+            null,
+            message,
+            "CHANGE PASSWORD FOR: " + targetUsername,
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result == JOptionPane.OK_OPTION) {
+            String password = new String(passwordField.getPassword());
+            String confirmPassword = new String(confirmPasswordField.getPassword());
+
+            try {
+                String validationResult = Validator.validateRegistration(
+                    targetUsername,
+                    password,
+                    confirmPassword,
+                    false // no need to check username existence here
+                );
+
+                if (validationResult != null) {
+                    throw new IllegalArgumentException(validationResult);
+                }
+
+                sqlite.updatePassword(targetUsername, password);
+                JOptionPane.showMessageDialog(this, "Password successfully changed for user: " + targetUsername);
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Invalid Password", JOptionPane.ERROR_MESSAGE);
             }
         }
     }//GEN-LAST:event_chgpassBtnActionPerformed

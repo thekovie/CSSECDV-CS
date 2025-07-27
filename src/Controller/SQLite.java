@@ -570,6 +570,48 @@ public class SQLite {
         }
     }
     
+    public void updatePassword(String username, String newPassword) {
+        String sqlUpdate = "UPDATE users SET password = ? WHERE username = ?";
+        String sqlLog = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false); // Begin transaction
+
+            try (
+                PreparedStatement updateStmt = conn.prepareStatement(sqlUpdate);
+                PreparedStatement logStmt = conn.prepareStatement(sqlLog)
+            ) {
+                // Hash the password before saving (assumes User.hashPassword is available)
+                String hashedPassword = User.hashPassword(newPassword);
+
+                // Update user password
+                updateStmt.setString(1, hashedPassword);
+                updateStmt.setString(2, username);
+                int rowsAffected = updateStmt.executeUpdate();
+
+                if (rowsAffected == 0) {
+                    throw new SQLException("User not found. Password update failed.");
+                }
+
+                // Log password change
+                String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                logStmt.setString(1, "NOTICE");
+                logStmt.setString(2, username);
+                logStmt.setString(3, "Password was updated.");
+                logStmt.setString(4, timestamp);
+                logStmt.executeUpdate();
+
+                conn.commit();
+            } catch (Exception ex) {
+                conn.rollback();
+                throw new RuntimeException("Error updating password: " + ex.getMessage());
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Transaction failed: " + e.getMessage());
+        }
+    }
+    
     public void updateUserRole(String username, int newRole, String performedBy) {
         String sql;
         String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
