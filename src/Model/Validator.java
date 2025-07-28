@@ -16,6 +16,9 @@ public class Validator {
         return strength.getScore();
     }
     public static String validateRegistration(String username, String password, String confirmPassword, boolean userNameExists) {
+        if (username.isBlank()) return "All fields are required";
+        if (password.isBlank()) return "All fields are required";
+        if (confirmPassword.isBlank()) return "All fields are required";
         if (userNameExists) return "Username already Exists!";
         if (password.toLowerCase().contains(username.toLowerCase())) return "Password should not contain your username!";
         if (!password.equals(confirmPassword)) return "Passwords do not match!";

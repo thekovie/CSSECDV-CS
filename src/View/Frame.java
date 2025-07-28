@@ -289,7 +289,6 @@ public class Frame extends javax.swing.JFrame {
     }
     
     
-    //TODO: might need to put these in their respective controllers...
     public void registerAction(String username, String password, String confpass){
         // double check if equal 
         if (!password.equals(confpass)) {

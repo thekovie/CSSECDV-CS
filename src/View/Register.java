@@ -2,7 +2,6 @@
 package View;
 
 import javax.swing.JOptionPane;
-
 import Model.Validator;
 
 public class Register extends javax.swing.JPanel {
@@ -112,8 +111,35 @@ public class Register extends javax.swing.JPanel {
             confpassFld.setText("");
             return;
         }
+        
+        CaptchaPanel captchaPanel = new CaptchaPanel(); 
+        int result = -1;
+        do {
+            result = JOptionPane.showConfirmDialog(
+                this, // Parent component
+                captchaPanel,
+                "CAPTCHA Verification",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE // No icon
+            );
 
-        frame.registerAction(username, password, confirm);
+            if (result == JOptionPane.OK_OPTION) {
+                if (captchaPanel.verifyCaptcha(captchaPanel.getCaptchaInput())) {
+                    break; // CAPTCHA verified, exit loop
+                } else {
+                    JOptionPane.showMessageDialog(this, "Incorrect CAPTCHA. Please try again.", "CAPTCHA Error", JOptionPane.WARNING_MESSAGE);
+                    captchaPanel.resetCaptcha(); // Generate new CAPTCHA
+                }
+            } else { 
+                return; 
+            }
+        } while (true); 
+
+        if (frame != null) {
+            frame.registerAction(username, password, confirm);
+            JOptionPane.showMessageDialog(this, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            frame.loginNav(); 
+        }
         
         //clear fields
         usernameFld.setText("");
