@@ -488,21 +488,50 @@ public void addProduct(String name, int stock, double price, String performedBy)
 
     public void addUser(String username, String password) {
         String sql = "INSERT INTO users(username, password) VALUES (?, ?)";
+        String logSql = "INSERT INTO logs(event, username, desc, timestamp) VALUES (?, ?, ?, ?)";
+        String timestamp = new Timestamp(System.currentTimeMillis()).toString();
 
         logger.debug("Preparing to insert user: " + username);
         logger.logSqlParams("Insert User Params", username, "[PROTECTED]");
 
-        try (Connection conn = DriverManager.getConnection(driverURL);
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DriverManager.getConnection(driverURL)) {
+            conn.setAutoCommit(false);
 
-            pstmt.setString(1, username);
-            pstmt.setString(2, password);
-            int rows = pstmt.executeUpdate();
+            try (
+                PreparedStatement pstmt = conn.prepareStatement(sql);
+                PreparedStatement logStmt = conn.prepareStatement(logSql)
+            ) {
+                pstmt.setString(1, username);
+                pstmt.setString(2, password);
+                int rows = pstmt.executeUpdate();
 
-            logger.debug("User insert executed. Rows affected: " + rows);
+                logger.debug("User insert executed. Rows affected: " + rows);
 
+                logStmt.setString(1, "NOTICE");
+                logStmt.setString(2, username);
+                logStmt.setString(3, "User registered successfully.");
+                logStmt.setString(4, timestamp);
+                logStmt.executeUpdate();
+
+                conn.commit();
+            } catch (Exception ex) {
+                conn.rollback();
+
+                logger.debug("Failed to insert user: " + ex.getMessage());
+                System.out.print("Error adding user: " + ex.getMessage());
+
+                try (PreparedStatement logStmt = conn.prepareStatement(logSql)) {
+                    logStmt.setString(1, "ALERT");
+                    logStmt.setString(2, username);
+                    logStmt.setString(3, "Failed to register user: " + ex.getMessage());
+                    logStmt.setString(4, timestamp);
+                    logStmt.executeUpdate();
+                } catch (Exception logEx) {
+                    logger.debug("Failed to log registration error: " + logEx.getMessage());
+                }
+            }
         } catch (Exception ex) {
-            logger.debug("Failed to insert user: " + ex.getMessage());
+            logger.debug("Outer transaction failure: " + ex.getMessage());
             System.out.print("Error adding user: " + ex.getMessage());
         }
     }

@@ -342,16 +342,19 @@ public class Frame extends javax.swing.JFrame {
             if (user.getLocked() == 1) return "Account locked. Please contact administrator.";
             
             if (!canAttemptLogin(user)) {
+                main.sqlite.addLogs("ALERT", username, "User is on cooldown", LocalDateTime.now().toString());
                 return "Invalid Username or Password!"; // same common error. attacker will know if the username exists if there will be a different error.
             }
             
             if (user.checkPassword(password) == false) {
                 handleFailedLogin(user);
+                main.sqlite.addLogs("NOTICE" + username, username, "Invalid password", LocalDateTime.now().toString());
                 return "Invalid Username or Password!";
             } 
             
             main.sqlite.resetLoginAttempts(username);
             
+            main.sqlite.addLogs("NOTICE", username, "User logged in successfully", LocalDateTime.now().toString());
             SessionManager.createSession(user.getId(), user.getUsername(), user.getRole(), 0);
             
             return null;
