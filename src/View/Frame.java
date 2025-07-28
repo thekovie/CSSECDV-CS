@@ -6,6 +6,8 @@ import Model.User;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Dimension;
+import java.sql.Timestamp;
+
 import javax.swing.WindowConstants;
 import java.time.LocalDateTime;
 public class Frame extends javax.swing.JFrame {
@@ -338,23 +340,24 @@ public class Frame extends javax.swing.JFrame {
     public String loginAction(String username, String password){
         try{
             User user = main.sqlite.getUser(username);
+            String timestamp = new Timestamp(System.currentTimeMillis()).toString();
             if (user == null) return "Invalid Username or Password!";
             if (user.getLocked() == 1) return "Account locked. Please contact administrator.";
             
             if (!canAttemptLogin(user)) {
-                main.sqlite.addLogs("ALERT", username, "User is on cooldown", LocalDateTime.now().toString());
+                main.sqlite.addLogs("ALERT", username, "User is on cooldown", timestamp);
                 return "Invalid Username or Password!"; // same common error. attacker will know if the username exists if there will be a different error.
             }
             
             if (user.checkPassword(password) == false) {
                 handleFailedLogin(user);
-                main.sqlite.addLogs("NOTICE" + username, username, "Invalid password", LocalDateTime.now().toString());
+                main.sqlite.addLogs("NOTICE" + username, username, "Invalid password", timestamp);
                 return "Invalid Username or Password!";
             } 
             
             main.sqlite.resetLoginAttempts(username);
             
-            main.sqlite.addLogs("NOTICE", username, "User logged in successfully", LocalDateTime.now().toString());
+            main.sqlite.addLogs("NOTICE", username, "User logged in successfully", timestamp);
             SessionManager.createSession(user.getId(), user.getUsername(), user.getRole(), 0);
             
             return null;
