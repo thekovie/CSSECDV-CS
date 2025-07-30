@@ -48,6 +48,7 @@ public class SQLite {
             + " id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
             + " username TEXT NOT NULL,\n"
             + " name TEXT NOT NULL,\n"
+            + " price REAL DEFAULT 0.00,\n"
             + " stock INTEGER DEFAULT 0,\n"
             + " timestamp TEXT NOT NULL\n"
             + ");";
@@ -165,19 +166,20 @@ public class SQLite {
         }
     }
     
-    public void addHistory(String username, String name, int stock, String timestamp) {
-        String sql = "INSERT INTO history(username, name, stock, timestamp) VALUES (?, ?, ?, ?)";
+    public void addHistory(String username, String name, int stock, double price, String timestamp) {
+        String sql = "INSERT INTO history(username, name, price, stock, timestamp) VALUES (?, ?, ?, ?, ?)";
 
         logger.debug("Preparing to insert history record.");
-        logger.logSqlParams("INSERT INTO history", username, name, stock, timestamp);
+        logger.logSqlParams("INSERT INTO history", username, name, price, stock, timestamp);
 
         try (Connection conn = DriverManager.getConnection(driverURL);
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, username);
             pstmt.setString(2, name);
-            pstmt.setInt(3, stock);
-            pstmt.setString(4, timestamp);
+            pstmt.setDouble(3, price);
+            pstmt.setInt(4, stock);
+            pstmt.setString(5, timestamp);
 
             int rows = pstmt.executeUpdate();
             logger.debug("History record inserted. Rows affected: " + rows);
@@ -291,9 +293,14 @@ public void addProduct(String name, int stock, double price, String performedBy)
                 }
 
                 String timestamp = new Timestamp(System.currentTimeMillis()).toString();
+                String logDescription = String.format(
+                    "Product \"%s\" updated: name=\"%s\", stock=%d, price=%.2f",
+                    originalName, newName, newStock, newPrice
+                );
+
                 logStmt.setString(1, "NOTICE");
                 logStmt.setString(2, performedBy);
-                logStmt.setString(3, "Product \"" + originalName + "\" updated to \"" + newName + "\".");
+                logStmt.setString(3, logDescription);
                 logStmt.setString(4, timestamp);
                 int logRows = logStmt.executeUpdate();
 
@@ -313,6 +320,7 @@ public void addProduct(String name, int stock, double price, String performedBy)
             throw new RuntimeException("Transaction failed: " + ex.getMessage());
         }
     }
+
 
 
     public ArrayList<Product> getProduct() {
@@ -368,7 +376,7 @@ public void addProduct(String name, int stock, double price, String performedBy)
     public boolean purchaseProduct(String name, int quantity, String username) {
         String selectSql = "SELECT stock, price FROM product WHERE name = ?";
         String updateSql = "UPDATE product SET stock = stock - ? WHERE name = ?";
-        String historySql = "INSERT INTO history(username, name, stock, timestamp) VALUES (?, ?, ?, ?)";
+        String historySql = "INSERT INTO history(username, name, price, stock, timestamp) VALUES (?, ?, ?, ?, ?)";
 
         logger.debug("Starting transaction to purchase product: " + name);
         logger.logSqlParams("Input", name, quantity, username);
@@ -397,6 +405,9 @@ public void addProduct(String name, int stock, double price, String performedBy)
                     logger.debug("Insufficient stock. Aborting transaction.");
                     return false;
                 }
+                
+                double price = rs.getDouble("price"); //current price
+                logger.debug("Current price: " + price);
 
                 // Update stock
                 updateStmt.setInt(1, quantity);
@@ -413,8 +424,9 @@ public void addProduct(String name, int stock, double price, String performedBy)
                 String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
                 historyStmt.setString(1, username);
                 historyStmt.setString(2, name);
-                historyStmt.setInt(3, quantity);
-                historyStmt.setString(4, timestamp);
+                historyStmt.setDouble(3, price);
+                historyStmt.setInt(4, quantity);
+                historyStmt.setString(5, timestamp);
                 historyStmt.executeUpdate();
 
                 logger.debug("Purchase history recorded for " + username + " at " + timestamp);
@@ -538,7 +550,7 @@ public void addProduct(String name, int stock, double price, String performedBy)
 
 
     public ArrayList<History> getHistory(){
-        String sql = "SELECT id, username, name, stock, timestamp FROM history";
+        String sql = "SELECT id, username, name, stock, price, timestamp FROM history";
         ArrayList<History> histories = new ArrayList<History>();
         
         try (Connection conn = DriverManager.getConnection(driverURL);
@@ -550,6 +562,7 @@ public void addProduct(String name, int stock, double price, String performedBy)
                                    rs.getString("username"),
                                    rs.getString("name"),
                                    rs.getInt("stock"),
+                                   rs.getDouble("price"),
                                    rs.getString("timestamp")));
             }
         } catch (Exception ex) {
@@ -559,7 +572,7 @@ public void addProduct(String name, int stock, double price, String performedBy)
     }
     
     public ArrayList<History> getHistoryWithUsername(String username) {
-        String sql = "SELECT id, username, name, stock, timestamp FROM history WHERE username = ?";
+        String sql = "SELECT id, username, name, stock, price, timestamp FROM history WHERE username = ?";
         ArrayList<History> histories = new ArrayList<>();
 
         try (Connection conn = DriverManager.getConnection(driverURL);
@@ -574,6 +587,7 @@ public void addProduct(String name, int stock, double price, String performedBy)
                     rs.getString("username"),
                     rs.getString("name"),
                     rs.getInt("stock"),
+                    rs.getDouble("price"),
                     rs.getString("timestamp")
                 ));
             }
@@ -586,7 +600,7 @@ public void addProduct(String name, int stock, double price, String performedBy)
     }
     
     public ArrayList<History> searchHistory(String query) {
-        String sql = "SELECT id, username, name, stock, timestamp FROM history WHERE username LIKE ? OR name LIKE ?";
+        String sql = "SELECT id, username, name, stock, price, timestamp FROM history WHERE username LIKE ? OR name LIKE ?";
 
         ArrayList<History> histories = new ArrayList<>();
 
@@ -604,6 +618,7 @@ public void addProduct(String name, int stock, double price, String performedBy)
                     rs.getString("username"),
                     rs.getString("name"),
                     rs.getInt("stock"),
+                    rs.getDouble("price"),
                     rs.getString("timestamp")
                 ));
             }
@@ -615,7 +630,7 @@ public void addProduct(String name, int stock, double price, String performedBy)
     }
     
     public ArrayList<History> searchHistoryForUser(String username, String query) {
-        String sql = "SELECT id, username, name, stock, timestamp FROM history WHERE username = ? AND name LIKE ?";
+        String sql = "SELECT id, username, name, stock, price, timestamp FROM history WHERE username = ? AND name LIKE ?";
 
         ArrayList<History> histories = new ArrayList<>();
 
@@ -632,6 +647,7 @@ public void addProduct(String name, int stock, double price, String performedBy)
                     rs.getString("username"),
                     rs.getString("name"),
                     rs.getInt("stock"),
+                    rs.getDouble("price"),
                     rs.getString("timestamp")
                 ));
             }
