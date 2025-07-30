@@ -100,52 +100,67 @@ public class Register extends javax.swing.JPanel {
     }// </editor-fold>//GEN-END:initComponents
 
     private void registerBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_registerBtnActionPerformed
-        String username = usernameFld.getText();
-        String password = passwordFld.getText();
-        String confirm = confpassFld.getText();
-        
-        String error = Validator.validateRegistration(username, password, confirm, frame.usernameExists(username));
-        if (error != null) {
-            JOptionPane.showMessageDialog(null, error, "Registration Error", JOptionPane.ERROR_MESSAGE);
-            passwordFld.setText("");
-            confpassFld.setText("");
-            return;
-        }
-        
-        CaptchaPanel captchaPanel = new CaptchaPanel(); 
-        int result = -1;
-        do {
-            result = JOptionPane.showConfirmDialog(
-                this, // Parent component
-                captchaPanel,
-                "CAPTCHA Verification",
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE // No icon
-            );
+    String username = usernameFld.getText();
+    String password = passwordFld.getText();
+    String confirm = confpassFld.getText();
 
-            if (result == JOptionPane.OK_OPTION) {
-                if (captchaPanel.verifyCaptcha(captchaPanel.getCaptchaInput())) {
-                    break; // CAPTCHA verified, exit loop
-                } else {
-                    JOptionPane.showMessageDialog(this, "Incorrect CAPTCHA. Please try again.", "CAPTCHA Error", JOptionPane.WARNING_MESSAGE);
-                    captchaPanel.resetCaptcha(); // Generate new CAPTCHA
-                }
-            } else { 
-                return; 
-            }
-        } while (true); 
-
-        if (frame != null) {
-            frame.registerAction(username, password, confirm);
-            JOptionPane.showMessageDialog(this, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
-            frame.loginNav(); 
-        }
-        
-        //clear fields
-        usernameFld.setText("");
+    String error = Validator.validateRegistration(username, password, confirm, frame.usernameExists(username));
+    if (error != null) {
+        JOptionPane.showMessageDialog(null, error, "Registration Error", JOptionPane.ERROR_MESSAGE);
         passwordFld.setText("");
         confpassFld.setText("");
-        frame.loginNav();
+        return;
+    }
+
+    CaptchaPanel captchaPanel = new CaptchaPanel(); 
+    int result = -1;
+    int failedAttempts = 0;
+    final int maxAttempts = 5;
+
+    do {
+        result = JOptionPane.showConfirmDialog(
+            this,
+            captchaPanel,
+            "CAPTCHA Verification",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (result == JOptionPane.OK_OPTION) {
+            if (captchaPanel.verifyCaptcha(captchaPanel.getCaptchaInput())) {
+                break; // CAPTCHA verified
+            } else {
+                failedAttempts++;
+                if (failedAttempts >= maxAttempts) {
+                    JOptionPane.showMessageDialog(this,
+                        "You have been blocked from accessing this service due to multiple failed verification attempts.",
+                        "Access Denied",
+                        JOptionPane.ERROR_MESSAGE
+                    );
+                    System.exit(0);
+                }
+                JOptionPane.showMessageDialog(this, 
+                    "Incorrect CAPTCHA. Attempt " + failedAttempts + " of " + maxAttempts + ".", 
+                    "CAPTCHA Error", 
+                    JOptionPane.WARNING_MESSAGE
+                );
+                captchaPanel.resetCaptcha();
+            }
+        } else {
+            return; // User cancelled
+        }
+    } while (true);
+
+    if (frame != null) {
+        frame.registerAction(username, password, confirm);
+        JOptionPane.showMessageDialog(this, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        frame.loginNav(); 
+    }
+
+    // Clear fields after successful registration
+    usernameFld.setText("");
+    passwordFld.setText("");
+    confpassFld.setText("");
     }//GEN-LAST:event_registerBtnActionPerformed
 
     private void backBtnActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_backBtnActionPerformed
